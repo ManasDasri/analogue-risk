@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "analogue-risk"
+version = "2.0.0"
+description = "Regime-conditioned analogue forecasting with self-exciting tail-risk gating"
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.0", "pandas>=2.2", "scipy>=1.13", "matplotlib>=3.9"]
+
+[tool.maturin]
+module-name = "sq._core"
+python-source = "python"
+features = ["pyo3/extension-module"]
