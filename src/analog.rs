@@ -109,32 +109,39 @@ pub fn forecast(emb: &[f64], m: usize, state: &[u8], y: &[f64], p: usize, prm: &
         .collect()
 }
 
-#[allow(clippy::too_many_arguments)]
-fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64], p: usize, prm: &Params) -> Vec<f64> {
-    let width = 2 * p + 2;
-    let nan = vec![f64::NAN; width];
+/// The analogue set chosen at bar t in kNN mode: indices per regime group and the normalised
+/// mixture weight of each group. None when no forecast exists at t.
+pub struct Selection {
+    pub groups: [Vec<usize>; 2],
+    pub weights: [f64; 2],
+    pub pi_high: f64,
+}
+
+fn candidates(t: usize, emb: &[f64], m: usize, y: &[f64], p: usize, prm: &Params) -> Option<Vec<(f64, usize)>> {
     let x = &emb[t * m..t * m + m];
     if t < prm.warmup || t < prm.delay || x.iter().any(|v| !v.is_finite()) {
-        return nan;
+        return None;
     }
     let hi = t - prm.delay; // newest anchor whose targets are fully observed at t
     let lo = t.saturating_sub(prm.lookback).max(prm.w);
     if hi < lo {
-        return nan;
+        return None;
     }
-    let mut cand: Vec<(f64, usize)> = (lo..=hi)
-        .filter(|&j| {
-            y[j * p..j * p + p].iter().all(|v| v.is_finite())
-                && emb[j * m..j * m + m].iter().all(|v| v.is_finite())
-        })
-        .map(|j| {
-            let e = &emb[j * m..j * m + m];
-            (x.iter().zip(e).map(|(a, b)| (a - b) * (a - b)).sum::<f64>(), j)
-        })
-        .collect();
-    if prm.bandwidth > 0.0 {
-        return kernel(&cand, state, pre, y, p, prm, t);
-    }
+    Some(
+        (lo..=hi)
+            .filter(|&j| {
+                y[j * p..j * p + p].iter().all(|v| v.is_finite())
+                    && emb[j * m..j * m + m].iter().all(|v| v.is_finite())
+            })
+            .map(|j| {
+                let e = &emb[j * m..j * m + m];
+                (x.iter().zip(e).map(|(a, b)| (a - b) * (a - b)).sum::<f64>(), j)
+            })
+            .collect(),
+    )
+}
+
+fn select(t: usize, mut cand: Vec<(f64, usize)>, state: &[u8], pre: &[[u32; 4]], prm: &Params) -> Option<Selection> {
     let groups = if prm.regime { 2 } else { 1 };
     let mut acc: Vec<usize> = Vec::with_capacity(groups * prm.k);
     let mut grp: [Vec<usize>; 2] = [Vec::new(), Vec::new()];
@@ -170,7 +177,6 @@ fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64
             }
         }
     }
-
     let pi1 = if prm.regime { markov_pi_high(state, pre, t, prm.lookback, prm.h) } else { 0.0 };
     let mut wts = if prm.regime { [1.0 - pi1, pi1] } else { [1.0, 0.0] };
     for s in 0..2 {
@@ -180,15 +186,27 @@ fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64
     }
     let wsum = wts[0] + wts[1];
     if wsum <= 0.0 {
-        return nan;
+        return None;
     }
+    Some(Selection { groups: grp, weights: [wts[0] / wsum, wts[1] / wsum], pi_high: pi1 })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64], p: usize, prm: &Params) -> Vec<f64> {
+    let width = 2 * p + 2;
+    let nan = vec![f64::NAN; width];
+    let Some(cand) = candidates(t, emb, m, y, p, prm) else { return nan };
+    if prm.bandwidth > 0.0 {
+        return kernel(&cand, state, pre, y, p, prm, t);
+    }
+    let Some(sel) = select(t, cand, state, pre, prm) else { return nan };
     let mut out = vec![0.0; width];
     for s in 0..2 {
-        let w = wts[s] / wsum;
+        let w = sel.weights[s];
         if w == 0.0 {
             continue;
         }
-        let g = &grp[s];
+        let g = &sel.groups[s];
         let k = g.len() as f64;
         for c in 0..p {
             let mean = g.iter().map(|&j| y[j * p + c]).sum::<f64>() / k;
@@ -200,9 +218,43 @@ fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64
     for c in 0..p {
         out[p + c] = out[p + c].sqrt();
     }
-    out[2 * p] = acc.len() as f64;
-    out[2 * p + 1] = pi1;
+    out[2 * p] = (sel.groups[0].len() + sel.groups[1].len()) as f64;
+    out[2 * p + 1] = sel.pi_high;
     out
+}
+
+/// kNN mode only: the analogue indices used at every bar and their weights (group weight / group
+/// size), as two n x (2k) arrays padded with -1 / 0. Lets callers compute any functional of the
+/// weighted analogue distribution (quantiles, expected shortfall).
+pub fn neighbours(emb: &[f64], m: usize, state: &[u8], y: &[f64], p: usize, prm: &Params) -> (Vec<i64>, Vec<f64>) {
+    let n = state.len();
+    let width = 2 * prm.k;
+    let pre = transition_prefix(state);
+    let rows: Vec<(Vec<i64>, Vec<f64>)> = (0..n)
+        .into_par_iter()
+        .map(|t| {
+            let mut idx = vec![-1i64; width];
+            let mut wt = vec![0.0; width];
+            if let Some(sel) = candidates(t, emb, m, y, p, prm).and_then(|c| select(t, c, state, &pre, prm)) {
+                let mut i = 0;
+                for s in 0..2 {
+                    let g = &sel.groups[s];
+                    for &j in g {
+                        idx[i] = j as i64;
+                        wt[i] = sel.weights[s] / g.len() as f64;
+                        i += 1;
+                    }
+                }
+            }
+            (idx, wt)
+        })
+        .collect();
+    let (mut ii, mut ww) = (Vec::with_capacity(n * width), Vec::with_capacity(n * width));
+    for (i, w) in rows {
+        ii.extend(i);
+        ww.extend(w);
+    }
+    (ii, ww)
 }
 
 /// Kernel mode: every candidate j gets weight exp(-d_j^2 / (2 bw^2)); regime groups are mixed as in

@@ -21,23 +21,40 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import _core as core, data, model as M, stats as S, vol as V
+from . import _core as core, data, model as M, stats as S, var as R, vol as V
 
-RES = Path(__file__).resolve().parents[2] / "results"
+ROOT = Path(__file__).resolve().parents[2] / "results"
+RES = ROOT  # set by main(): results/ for development, results/confirmatory/ for the pre-registered run
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-HOURLY = {"BTC": ("BTCUSDT", "1h"), "ETH": ("ETHUSDT", "1h"), "PAXG": ("PAXGUSDT", "1h")}
-DAILY = {"S&P 500": "^GSPC", "Nasdaq-100": "QQQ", "Gold": "GLD", "Treasuries": "TLT",
-         "EUR/USD": "EURUSD=X", "NIFTY 50": "^NSEI"}
+UNIVERSES = {
+    # development set: every design decision was made on these
+    "development": dict(
+        hourly={"BTC": "BTCUSDT", "ETH": "ETHUSDT", "PAXG": "PAXGUSDT"},
+        daily={"S&P 500": "^GSPC", "Nasdaq-100": "QQQ", "Gold": "GLD", "Treasuries": "TLT",
+               "EUR/USD": "EURUSD=X", "NIFTY 50": "^NSEI"}),
+    # confirmatory set: fixed in PREREGISTRATION.md before any of it was downloaded
+    "confirmatory": dict(
+        hourly={"SOL": "SOLUSDT", "BNB": "BNBUSDT", "XRP": "XRPUSDT", "ADA": "ADAUSDT", "LTC": "LTCUSDT"},
+        daily={"DAX": "^GDAXI", "Nikkei 225": "^N225", "FTSE 100": "^FTSE", "Hang Seng": "^HSI",
+               "Russell 2000": "IWM", "Emerging mkts": "EEM", "Silver": "SLV", "Oil": "USO",
+               "GBP/USD": "GBPUSD=X", "USD/JPY": "JPY=X"}),
+}
+MIN_BARS = {True: 20000, False: 3000}  # pre-registered exclusion rule (after cleaning)
 
 
-def load(quick=False):
-    """name -> (DataFrame, is_hourly)."""
-    out = {k: (data.binance(*v), True) for k, v in HOURLY.items()}
-    for k, v in DAILY.items():
-        out[k] = (data.yahoo(v, start="1927-12-30" if v == "^GSPC" else "1990-01-01"), False)
+def load(universe="development", quick=False):
+    """name -> (DataFrame, is_hourly). Series shorter than MIN_BARS are excluded (and logged)."""
+    u = UNIVERSES[universe]
+    out = {k: (data.binance(v, "1h"), True) for k, v in u["hourly"].items()}
+    for k, v in u["daily"].items():
+        out[k] = (data.yahoo(v, start="1927-12-30" if v == "^GSPC" else "1950-01-01"), False)
+    for k, (df, hourly) in list(out.items()):
+        if len(df) < MIN_BARS[hourly]:
+            print(f"  excluded {k}: {len(df)} bars < {MIN_BARS[hourly]}", flush=True)
+            del out[k]
     if quick:
-        out = {k: out[k] for k in ("BTC", "S&P 500")}
+        out = dict(list(out.items())[:1] + [x for x in out.items() if not x[1][1]][:1])
     return out
 
 
@@ -231,6 +248,52 @@ def e5_overlay(series, forecasts, B):
             "band). p: paired stationary-bootstrap test of the Sharpe difference.")
 
 
+# ---------------------------------------------------------------- E8: VaR / ES
+
+def var_config(n):
+    """Pre-registered rule: shorter daily series use fewer analogues and a shorter warm-up."""
+    return R.VarConfig() if n >= 6000 else R.VarConfig(k=125, min_hist=1000)
+
+
+def e8_var(sets, B):
+    rows, mcs_rows = [], []
+    for name, (df, hourly) in sets.items():
+        daily = data.resample(df, "1D") if hourly else df
+        mkt = M.Market(daily)
+        cfg = var_config(mkt.n)
+        vc = cfg.vol()
+        d = V.VolData(mkt, vc)
+        cal, bounds = split(mkt.n, vc.warmup)
+        out = R.forecasts(d, cfg, bounds)
+        out["Blend"] = {a: tuple(0.5 * out["Analogue"][a][i] + 0.5 * out["FHS"][a][i] for i in (0, 1))
+                        for a in R.ALPHAS}
+        y = np.r_[d.r[1:], np.nan]
+        for a in R.ALPHAS:
+            ok = np.zeros(mkt.n, bool)
+            ok[cal:] = True
+            ok &= np.isfinite(y)
+            for f in out.values():
+                ok &= np.isfinite(f[a][0]) & np.isfinite(f[a][1]) & (f[a][1] < 0)
+            losses = {}
+            for m_, f in out.items():
+                v, e = f[a][0][ok], f[a][1][ok]
+                hits = y[ok] <= v
+                losses[m_] = R.fz0_loss(y[ok], v, e, a)
+                p_ind, p_cc = R.christoffersen(hits, a)
+                rows.append({"series": name, "alpha": a, "model": m_, "n": int(ok.sum()),
+                             "hit rate / alpha": hits.mean() / a, "Kupiec p": R.kupiec(hits, a)[1],
+                             "Christoffersen CC p": p_cc, "tick loss": R.tick_loss(y[ok], v, a).mean(),
+                             "FZ0": losses[m_].mean()})
+            mcs = S.model_confidence_set(losses, B=B, block=10)
+            for m_ in losses:
+                mcs_rows.append({"series": name, "alpha": a, "model": m_, "MCS p (FZ0)": mcs[m_]})
+        print(f"  E8 {name} done", flush=True)
+    t = pd.DataFrame(rows).merge(pd.DataFrame(mcs_rows), on=["series", "alpha", "model"])
+    md(t.set_index(["series", "alpha", "model"]), RES / "e8_var",
+       note="Out-of-sample one-day VaR/ES. hit rate / alpha = 1 is perfect coverage; Kupiec and Christoffersen "
+            "p < 0.05 reject correct coverage; FZ0 is the Fissler-Ziegel joint loss (lower is better).")
+
+
 # ---------------------------------------------------------------- E6: timeframe claim, E7: speed
 
 def e6_timeframe():
@@ -293,12 +356,16 @@ def e7_speed():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="two series, fewer bootstrap draws")
-    ap.add_argument("--only", nargs="*", default=None, help="subset of e1..e7")
+    ap.add_argument("--only", nargs="*", default=None, help="subset of e1..e8")
+    ap.add_argument("--universe", default="development", choices=list(UNIVERSES))
     a = ap.parse_args()
+    global RES
+    RES = ROOT if a.universe == "development" else ROOT / a.universe
+    RES.mkdir(parents=True, exist_ok=True)
     B = 200 if a.quick else 1000
     want = lambda e: a.only is None or e in a.only
     t0 = time.time()
-    sets = load(a.quick)
+    sets = load(a.universe, a.quick)
     (RES / "config.json").write_text(json.dumps({"hourly": asdict(V.HOURLY), "daily_w": asdict(V.DAILY_W),
                                                  "daily_m": asdict(V.DAILY_M), "direction": asdict(M.Config())},
                                                 indent=1, default=str))
@@ -313,9 +380,11 @@ def main():
             e4_tail(series)
         if want("e5"):
             e5_overlay(series, forecasts, B)
-    if want("e6") and not a.quick:
+    if want("e8"):
+        e8_var(sets, B)
+    if want("e6") and not a.quick and a.universe == "development":
         e6_timeframe()
-    if want("e7") and not a.quick:
+    if want("e7") and not a.quick and a.universe == "development":
         e7_speed()
     print(f"\nall done in {time.time() - t0:.0f}s")
 
