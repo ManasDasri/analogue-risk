@@ -10,6 +10,6 @@ requires-python = ">=3.12"
 dependencies = ["numpy>=2.0", "pandas>=2.2", "scipy>=1.13", "matplotlib>=3.9"]
 
 [tool.maturin]
-module-name = "sq._core"
+module-name = "analogue_risk._core"
 python-source = "python"
 features = ["pyo3/extension-module"]

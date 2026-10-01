@@ -3,7 +3,7 @@
 Export the trade list from TradingView (Strategy Tester -> List of Trades -> export) for the
 original script on BINANCE:BTCUSDT, 1h, default inputs, then run:
 
-    python -m sq.pine_parity trades.csv [--symbol BTCUSDT] [--tz UTC]
+    python -m analogue_risk.pine_parity trades.csv [--symbol BTCUSDT] [--tz UTC]
 
 `--tz` is the chart timezone the export was made in (TradingView writes times in it).
 Trades are matched by entry bar and direction; exit bar and prices are then compared.

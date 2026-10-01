@@ -230,8 +230,8 @@ ID & Hypothesis & Statistic & $p$ & Statistic & $p$ & Holm $p$ \\
 def data_table():
     import sys
     sys.path.insert(0, str(ROOT / "python"))
-    from sq.experiments import UNIVERSES, load, split
-    from sq import vol as V
+    from analogue_risk.experiments import UNIVERSES, load, split
+    from analogue_risk import vol as V
     rows = []
     for universe in ("development", "confirmatory"):
         u = UNIVERSES[universe]

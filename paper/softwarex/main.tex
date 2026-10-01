@@ -103,7 +103,7 @@ produce well-calibrated, competitive risk forecasts.
 \section{Software description}
 
 \subsection{Software architecture}
-The package is a Rust crate compiled to a Python extension module (\texttt{sq.\_core}) with PyO3
+The package is a Rust crate compiled to a Python extension module (\texttt{analogue\_risk.\_core}) with PyO3
 and maturin, plus a thin Python layer (Fig.~\ref{fig:arch}). All per-bar work is in Rust and
 releases Python's global interpreter lock; per-bar forecasts are independent and run in parallel
 with rayon.
@@ -176,8 +176,8 @@ Listing~\ref{lst:ex} forecasts next-day volatility of the S\&P 500 with analogue
 with HAR and GARCH under the walk-forward protocol.
 
 \begin{lstlisting}[language=Python, caption={Walk-forward volatility forecasting.}, label={lst:ex}]
-from sq import data, model as M, vol as V, stats as S
-from sq.experiments import split
+from analogue_risk import data, model as M, vol as V, stats as S
+from analogue_risk.experiments import split
 mkt = M.Market(data.yahoo("^GSPC", start="1927-12-30"))
 d = V.VolData(mkt, V.DAILY_W)                   # h = 5 days
 cal, folds = split(mkt.n, V.DAILY_W.warmup)

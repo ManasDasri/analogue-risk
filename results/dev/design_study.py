@@ -4,7 +4,7 @@ import sys, time, warnings
 sys.path.insert(0, "python"); warnings.filterwarnings("ignore")
 import numpy as np, pandas as pd
 from dataclasses import replace
-from sq import data, model as M, vol as V
+from analogue_risk import data, model as M, vol as V
 
 sets = [("BTC_1h", data.binance("BTCUSDT", "1h"), V.HOURLY), ("ETH_1h", data.binance("ETHUSDT", "1h"), V.HOURLY),
         ("PAXG_1h", data.binance("PAXGUSDT", "1h"), V.HOURLY), ("GSPC_w", data.yahoo("^GSPC", start="1927-12-30"), V.DAILY_W),
