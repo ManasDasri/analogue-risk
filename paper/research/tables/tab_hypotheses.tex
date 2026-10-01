@@ -1,0 +1,16 @@
+\begin{tabular}{l>{\raggedright\arraybackslash}p{5.2cm}>{\raggedright\arraybackslash}p{2.6cm}r>{\raggedright\arraybackslash}p{2.6cm}rr}
+\toprule
+& & \multicolumn{2}{c}{Development (exploratory)} & \multicolumn{3}{c}{Confirmatory (pre-registered)} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-7}
+ID & Hypothesis & Statistic & $p$ & Statistic & $p$ & Holm $p$ \\
+\midrule
+H1 & Analogue direction forecasts have zero mean IC across assets (null expected) & mean IC -0.0043; max DSR 0.58 & 0.562 & mean IC +0.0031; max DSR 0.46 & 0.603 & 1.000\\
+H2 & Analogue+HAR QLIKE differs from HAR & median ratio 1.012 & 0.303 & median ratio 1.001 & 0.672 & 1.000\\
+H3 & Analogue alone QLIKE differs from HAR & median ratio 1.103 & 0.001 & median ratio 1.087 & 0.000 & 0.000\\
+H4 & Gaussian-kernel analogue beats kNN analogue (one-sided) & median ratio 0.967 & 0.000 & median ratio 0.953 & 0.000 & 0.000\\
+H5 & Gradient boosting QLIKE differs from HAR & median ratio 1.522 & 0.000 & median ratio 1.423 & 0.000 & 0.000\\
+H6 & Hawkes tail forecasts beat static Poisson (one-sided log-loss) & median ratio 0.930 & 0.000 & median ratio 0.847 & 0.000 & 0.000\\
+H7 & Analogue-FHS blend FZ0 differs from FHS at alpha = 2.5\% & median diff -0.0003 & 0.910 & median diff -0.0005 & 0.934 & 1.000\\
+H8 & Volatility targeting (Analogue+HAR) reduces max drawdown vs buy \& hold (one-sided sign test) & 9/9 improve & 0.002 & 15/15 improve & 0.000 & 0.000\\
+\bottomrule
+\end{tabular}
