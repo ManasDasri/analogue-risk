@@ -4,6 +4,7 @@ mod features;
 mod garch;
 mod hawkes;
 mod legacy;
+mod tails;
 
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
@@ -83,6 +84,22 @@ fn neighbours<'py>(
     Ok((idx.into_pyarray(py).reshape([st.len(), 2 * k])?, to2d(py, wt, 2 * k)?))
 }
 
+/// Expanding alpha-quantile and expected shortfall over finite z[start..=t], for every t.
+#[pyfunction]
+fn expanding_tail<'py>(py: Python<'py>, z: PyReadonlyArray1<f64>, start: usize, alpha: f64) -> PyResult<(A1<'py>, A1<'py>)> {
+    let z = z.as_slice()?;
+    let (q, es) = py.detach(|| tails::expanding_tail(z, start, alpha));
+    Ok((q.into_pyarray(py), es.into_pyarray(py)))
+}
+
+/// Rolling alpha-quantile and expected shortfall over the last `window` values, for every t.
+#[pyfunction]
+fn rolling_tail<'py>(py: Python<'py>, r: PyReadonlyArray1<f64>, window: usize, alpha: f64) -> PyResult<(A1<'py>, A1<'py>)> {
+    let r = r.as_slice()?;
+    let (q, es) = py.detach(|| tails::rolling_tail(r, window, alpha));
+    Ok((q.into_pyarray(py), es.into_pyarray(py)))
+}
+
 /// Zero-mean GARCH(1,1): (one-step variance forecasts, log-likelihood from `start`).
 #[pyfunction]
 fn garch_filter<'py>(
@@ -151,6 +168,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(forecast, m)?)?;
     m.add_function(wrap_pyfunction!(neighbours, m)?)?;
     m.add_function(wrap_pyfunction!(garch_filter, m)?)?;
+    m.add_function(wrap_pyfunction!(expanding_tail, m)?)?;
+    m.add_function(wrap_pyfunction!(rolling_tail, m)?)?;
     m.add_function(wrap_pyfunction!(hawkes_loglik, m)?)?;
     m.add_function(wrap_pyfunction!(hawkes_prob, m)?)?;
     m.add_function(wrap_pyfunction!(py_backtest, m)?)?;

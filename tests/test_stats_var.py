@@ -128,3 +128,22 @@ def replace_cfg():
     from dataclasses import replace
     from sq import vol as V
     return replace(V.HOURLY, min_hist=4000, regime_len=300, k=10)
+
+
+def test_rust_tail_quantiles_match_numpy():
+    from sq import _core as core
+    rng = np.random.default_rng(5)
+    z = rng.standard_t(4, 3000)
+    z[[100, 2000]] = np.nan
+    for a in (0.01, 0.025, 0.05):
+        q, es = core.expanding_tail(z, 50, a)
+        for t in (60, 999, 2999):
+            past = z[50:t + 1]
+            past = past[np.isfinite(past)]
+            assert q[t] == np.quantile(past, a)                       # bit-identical quantile
+            assert es[t] == pytest.approx(past[past <= q[t]].mean(), rel=1e-12)
+        qr, er = core.rolling_tail(np.nan_to_num(z), 250, a)
+        for t in (249, 1234, 2999):
+            win = np.nan_to_num(z)[t - 249:t + 1]
+            assert qr[t] == np.quantile(win, a)
+            assert er[t] == pytest.approx(win[win <= qr[t]].mean(), rel=1e-12)
