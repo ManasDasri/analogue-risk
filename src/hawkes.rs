@@ -29,3 +29,23 @@ pub fn prob(events: &[bool], mu: f64, alpha: f64, beta: f64, h: f64) -> Vec<f64>
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn poisson_limit_and_excitation() {
+        // alpha = 0: a homogeneous Poisson process, P = 1 - exp(-mu h) whatever the history
+        let p = prob(&[true, false, true], 0.01, 0.0, 0.5, 10.0);
+        assert!(p.iter().all(|&x| (x - (1.0 - (-0.1f64).exp())).abs() < 1e-12));
+        // an event raises the probability, which then decays back toward the baseline
+        let q = prob(&[false, true, false, false], 0.01, 0.5, 0.5, 10.0);
+        assert!(q[1] > q[2] && q[2] > q[3] && q[3] > q[0]);
+    }
+
+    #[test]
+    fn loglik_of_no_events_is_minus_compensator() {
+        assert!((loglik(&[], 100.0, 0.02, 0.3, 0.1) + 2.0).abs() < 1e-12);
+    }
+}

@@ -334,3 +334,33 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
     out[2 * p + 1] = pi1;
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn markov_forecast_closed_form() {
+        let state = [0u8, 0, 1, 1, 0, 1, 1, 1, 0, 0];
+        let pre = transition_prefix(&state);
+        // transitions over bars 1..=9: 0->0 x2, 0->1 x2, 1->1 x3, 1->0 x2
+        let (a, b): (f64, f64) = (2.0 / 4.0, 2.0 / 5.0);
+        let (q, lam) = (a / (a + b), 1.0 - a - b);
+        let expect: f64 = (1..=3).map(|k| q + (0.0 - q) * lam.powi(k)).sum::<f64>() / 3.0;
+        assert!((markov_pi_high(&state, &pre, 9, 100, 3) - expect).abs() < 1e-12);
+    }
+
+    #[test]
+    fn exclusion_zone_and_causality_in_selection() {
+        // 1-D embedding equal to the bar index: the nearest past anchors are the most recent ones
+        let n = 60;
+        let emb: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let y = vec![1.0; n];
+        let state = vec![0u8; n];
+        let prm = Params { w: 0, delay: 5, h: 5, lookback: 1000, k: 4, k_min: 2, excl: 5, regime: false,
+                           warmup: 0, bandwidth: 0.0, kernel_block: 0 };
+        let (idx, _) = neighbours(&emb, 1, &state, &y, 1, &prm);
+        let row: Vec<i64> = idx[50 * 8..50 * 8 + 4].to_vec();
+        assert_eq!(row, vec![45, 40, 35, 30]); // newest allowed anchor is t - delay; spaced >= excl
+    }
+}

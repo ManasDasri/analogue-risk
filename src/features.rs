@@ -87,3 +87,29 @@ pub fn regime(atr: &[f64], len: usize) -> Vec<u8> {
     let ma = sma(atr, len);
     atr.iter().zip(&ma).map(|(a, m)| (a > m) as u8).collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn atr_matches_wilder_definition() {
+        let h = [10.0, 11.0, 12.0, 11.5];
+        let l = [9.0, 9.5, 10.0, 10.0];
+        let c = [9.5, 10.5, 11.0, 10.5];
+        let a = atr(&h, &l, &c, 2);
+        // TR = [1.0, 1.5, 2.0, 1.5]; seed = mean(1.0, 1.5); then RMA with alpha = 1/2
+        assert!(a[0].is_nan());
+        assert!((a[1] - 1.25).abs() < 1e-12 && (a[2] - 1.625).abs() < 1e-12 && (a[3] - 1.5625).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rolling_statistics_and_nan_semantics() {
+        let x = [1.0, 2.0, 3.0, f64::NAN, 5.0, 6.0];
+        let m = sma(&x, 2);
+        assert!(m[0].is_nan() && (m[1] - 1.5).abs() < 1e-12 && (m[2] - 2.5).abs() < 1e-12);
+        assert!(m[3].is_nan() && m[4].is_nan() && (m[5] - 5.5).abs() < 1e-12);
+        let s = stdev(&[1.0, 3.0, 5.0], 3);
+        assert!((s[2] - (8.0f64 / 3.0).sqrt()).abs() < 1e-12); // population standard deviation
+    }
+}

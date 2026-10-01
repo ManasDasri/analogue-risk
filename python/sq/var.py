@@ -47,7 +47,7 @@ def weighted_tail(vals, w, alpha):
     k = np.argmax(cw >= alpha * cw[:, -1:], axis=1)
     q = v[np.arange(len(v)), k]
     below = (np.arange(v.shape[1])[None, :] <= k[:, None]) & np.isfinite(v)
-    es = (np.where(below, v * ww, 0).sum(1)) / np.where(below, ww, 0).sum(1)
+    es = np.where(below, np.where(np.isfinite(v), v, 0.0) * ww, 0).sum(1) / np.where(below, ww, 0).sum(1)
     empty = cw[:, -1] <= 0
     q[empty], es[empty] = np.nan, np.nan
     return q, es
