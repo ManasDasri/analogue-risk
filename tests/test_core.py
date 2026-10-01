@@ -249,3 +249,23 @@ def test_kernel_block_effective_sample_size():
     np.testing.assert_allclose(blk[ok, :2], off[ok, :2])         # means unchanged
     assert (blk[ok, 2:4] >= off[ok, 2:4] - 1e-15).all()          # standard errors never smaller
     assert np.median(blk[ok, 4] / off[ok, 4]) < 0.5              # far fewer effective observations
+
+
+def test_public_api_matches_core_and_validates():
+    from analogue_risk import Analogue, volatility_forecast
+    d = V.VolData(M.Market(synthetic()), SMALL_VOL)
+    vc = SMALL_VOL
+    y = np.column_stack([d.target - np.log(d.long), d.tail])
+    model = Analogue(horizon=vc.h, k=vc.k, min_history=vc.warmup)
+    F = model.forecast(d.emb, y, state=d.state)
+    raw = core.forecast(np.ascontiguousarray(d.emb), d.state, np.ascontiguousarray(y), 0, vc.h, vc.h, 10**9,
+                        vc.k, vc.k_min, vc.h, True, vc.warmup)
+    np.testing.assert_array_equal(F.to_numpy(), raw)
+    assert list(F.columns) == ["mean_0", "mean_1", "se_0", "se_1", "n_analogues", "p_high_regime"]
+    idx, w = model.neighbours(d.emb, y, state=d.state)
+    ok = np.isfinite(F.mean_0)
+    assert np.allclose(w[ok].sum(1), 1)
+    with pytest.raises(ValueError):
+        model.forecast(d.emb[:-1], y)
+    vf = volatility_forecast(synthetic(12000), horizon=24, min_hist=4000, regime_len=300)
+    assert {"variance", "realised", "n_analogues"} <= set(vf.columns) and vf.variance.notna().sum() > 1000
