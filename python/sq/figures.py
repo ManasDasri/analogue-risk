@@ -148,6 +148,31 @@ def fig_reliability(d, cal, bounds):
     save(fig, "fig_tail_reliability")
 
 
+def fig_hypotheses():
+    """Per-series QLIKE ratios for the three volatility hypotheses, development vs confirmatory."""
+    sets = {"development": RES / "e2_volatility.csv", "confirmatory": RES / "confirmatory" / "e2_volatility.csv"}
+    abl = {"development": RES / "e3_ablation.csv", "confirmatory": RES / "confirmatory" / "e3_ablation.csv"}
+    panels = [("H2: Analogue+HAR vs HAR", lambda q, a: q["Analogue+HAR"] / q["HAR"]),
+              ("H3: Analogue vs HAR", lambda q, a: q["Analogue"] / q["HAR"]),
+              ("H4: kernel vs kNN analogue", lambda q, a: a)]
+    fig, axes = plt.subplots(1, 3, figsize=(6.8, 2.5), sharey=True)
+    for ax, (title, f) in zip(axes, panels):
+        for i, (name, col) in enumerate((("development", INK2), ("confirmatory", BLUE))):
+            q = pd.read_csv(sets[name]).pivot(index="series", columns="model", values="QLIKE")
+            a = pd.read_csv(abl[name]).set_index("series")["Gaussian kernel (bw 0.6)"].drop("mean")
+            r = np.asarray(f(q, a.reindex(q.index)), float)
+            jitter = np.random.default_rng(i).uniform(-0.12, 0.12, len(r))
+            ax.scatter(np.log(r), i + jitter, s=12, color=col, alpha=0.75, edgecolors="none")
+            ax.plot([np.median(np.log(r))] * 2, [i - 0.3, i + 0.3], color=col, lw=2)
+        ax.axvline(0, color=INK2, lw=0.8, ls=":")
+        ax.set_title(title, fontsize=8.5, loc="left", color=INK)
+        ax.set_xlabel("log QLIKE ratio (<0 better)")
+    axes[0].set_yticks([0, 1])
+    axes[0].set_yticklabels(["development", "confirmatory"])
+    fig.tight_layout()
+    save(fig, "fig_hypotheses")
+
+
 def main():
     btc = M.Market(data.binance("BTCUSDT", "1h"))
     spx = M.Market(data.yahoo("^GSPC", start="1927-12-30"))
@@ -160,6 +185,7 @@ def main():
     fig_cum_loss(series)
     fig_overlay(series)
     fig_reliability(*[series[0][i] for i in (1, 2, 3)])
+    fig_hypotheses()
 
 
 if __name__ == "__main__":
