@@ -146,6 +146,16 @@ bars are passed through a documented bad-tick filter (|r| > 8 × 20-day σ **and
 the next bar); it removes three EUR/USD prints from 2008 and one S&P 500 print from 1935, and keeps
 genuine events such as 2020-03-12.
 
+## Install
+
+```bash
+pip install analogue-risk     # once published to PyPI; prebuilt wheels for Linux, macOS, Windows
+# or from a GitHub release:  pip install analogue_risk-2.0.0-<platform>.whl
+# or from source (needs Rust): pip install git+https://github.com/ManasDasri/analogue-risk
+```
+An installed package caches downloaded data in `~/.cache/analogue-risk` (override with
+`ANALOGUE_RISK_DATA`); a source checkout uses `data/`.
+
 ## Reproduce
 
 ```bash

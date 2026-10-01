@@ -1,0 +1,12 @@
+{
+  "title": "analogue-risk: regime-conditioned analogue forecasting of financial risk",
+  "upload_type": "software",
+  "license": "MIT",
+  "description": "Fast, leakage-safe Rust/Python engine for regime-conditioned analogue (nearest-neighbour) forecasting of volatility, tail events and Value-at-Risk, with a pre-registered evaluation suite.",
+  "creators": [
+    {"name": "Dasari, Manas Ganesh", "affiliation": "Amrita Vishwa Vidyapeetham, Bengaluru"},
+    {"name": "KVS, Vishal", "affiliation": "Amrita Vishwa Vidyapeetham, Bengaluru"},
+    {"name": "Meera, K. N.", "affiliation": "Amrita Vishwa Vidyapeetham, Bengaluru"}
+  ],
+  "keywords": ["analogue forecasting", "nearest neighbours", "volatility forecasting", "value-at-risk", "Hawkes process", "pre-registration"]
+}

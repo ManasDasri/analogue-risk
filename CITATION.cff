@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "analogue-risk: regime-conditioned analogue forecasting of financial risk"
+type: software
+version: 2.0.0
+license: MIT
+repository-code: "https://github.com/ManasDasri/analogue-risk"
+authors:
+  - family-names: Dasari
+    given-names: Manas Ganesh
+    affiliation: "Department of Computer Science and Engineering, Amrita School of Computing, Amrita Vishwa Vidyapeetham, Bengaluru"
+  - family-names: KVS
+    given-names: Vishal
+    affiliation: "Department of Computer Science and Engineering, Amrita School of Computing, Amrita Vishwa Vidyapeetham, Bengaluru"
+  - family-names: Meera
+    given-names: K. N.
+    affiliation: "Department of Mathematics, Amrita School of Computing, Amrita Vishwa Vidyapeetham, Bengaluru"
+keywords: [analogue forecasting, nearest neighbours, volatility forecasting, value-at-risk, Hawkes process, pre-registration]
