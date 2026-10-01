@@ -29,7 +29,9 @@ from . import stats as S
 from . import var as R
 from . import vol as V
 
-ROOT = Path(__file__).resolve().parents[2] / "results"
+_REPO = Path(__file__).resolve().parents[2]
+# results/ of the source checkout; an installed package writes to ./results
+ROOT = _REPO / "results" if (_REPO / "pyproject.toml").exists() else Path.cwd() / "results"
 RES = ROOT  # set by main(): results/ for development, results/confirmatory/ for the pre-registered run
 AUTO_BLOCK = False  # --auto-block: Politis-White block lengths instead of the fixed defaults
 

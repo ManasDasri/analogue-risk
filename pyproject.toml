@@ -5,9 +5,30 @@ build-backend = "maturin"
 [project]
 name = "analogue-risk"
 version = "2.0.0"
-description = "Regime-conditioned analogue forecasting with self-exciting tail-risk gating"
+description = "Fast, leakage-safe regime-conditioned analogue forecasting of financial risk"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Manas Ganesh Dasari" }, { name = "Vishal KVS" }, { name = "K. N. Meera" }]
 requires-python = ">=3.12"
-dependencies = ["numpy>=2.0", "pandas>=2.2", "scipy>=1.13", "matplotlib>=3.9"]
+dependencies = ["numpy>=2.0", "pandas>=2.2", "scipy>=1.13", "matplotlib>=3.9", "scikit-learn>=1.4", "tabulate>=0.9"]
+keywords = ["forecasting", "nearest neighbours", "analogues", "volatility", "value-at-risk", "hawkes"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Intended Audience :: Science/Research",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/ManasDasri/analogue-risk"
+Repository = "https://github.com/ManasDasri/analogue-risk"
+Issues = "https://github.com/ManasDasri/analogue-risk/issues"
 
 [tool.maturin]
 module-name = "analogue_risk._core"

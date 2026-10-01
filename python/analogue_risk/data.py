@@ -19,7 +19,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-DATA = Path(__file__).resolve().parents[2] / "data"
+_REPO = Path(__file__).resolve().parents[2]
+# Cache: $ANALOGUE_RISK_DATA if set; data/ in a source checkout; otherwise ~/.cache/analogue-risk
+DATA = Path(
+    os.environ.get("ANALOGUE_RISK_DATA")
+    or (_REPO / "data" if (_REPO / "pyproject.toml").exists() else Path.home() / ".cache" / "analogue-risk")
+)
 MANIFEST = json.loads((Path(__file__).with_name("data_manifest.json")).read_text())
 COLS = ["open", "high", "low", "close", "volume"]
 
