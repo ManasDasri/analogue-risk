@@ -236,3 +236,16 @@ def test_pine_port_matches_tradingview():
     from sq import data as D, pine_parity as P
     report, _ = P.compare(P.read_tradingview(TV_EXPORT, "UTC"), P.port_trades(M.Market(D.binance("BTCUSDT", "1h"))))
     assert report["match rate (of TradingView)"] >= 0.95
+
+
+def test_kernel_block_effective_sample_size():
+    d = V.VolData(M.Market(synthetic(8000)), SMALL_VOL)
+    vc = SMALL_VOL
+    y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
+    args = (d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, vc.lookback, vc.k, vc.k_min, vc.h, vc.regime, vc.warmup, 0.6)
+    off, one, blk = core.forecast(*args, 0), core.forecast(*args, 1), core.forecast(*args, vc.h)
+    np.testing.assert_array_equal(off, one)                     # blocks of one anchor = per-anchor Kish
+    ok = np.isfinite(blk[:, 0]) & np.isfinite(off[:, 0])
+    np.testing.assert_allclose(blk[ok, :2], off[ok, :2])         # means unchanged
+    assert (blk[ok, 2:4] >= off[ok, 2:4] - 1e-15).all()          # standard errors never smaller
+    assert np.median(blk[ok, 4] / off[ok, 4]) < 0.5              # far fewer effective observations

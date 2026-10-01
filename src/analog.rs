@@ -22,6 +22,9 @@ pub struct Params {
     pub warmup: usize,
     /// > 0: Gaussian-kernel weights over all candidates (Nadaraya-Watson) instead of k nearest.
     pub bandwidth: f64,
+    /// Kernel mode: if > 0, the effective sample size treats each block of this many consecutive
+    /// anchors as one observation (their outcome windows overlap), instead of every anchor.
+    pub kernel_block: usize,
 }
 
 /// Row-major n x m embedding; NaN rows where the window is incomplete.
@@ -267,6 +270,9 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
     let mut sw2 = [0.0f64; 2];
     let mut sy = vec![[0.0f64; 2]; p];
     let mut syy = vec![[0.0f64; 2]; p];
+    // Block accumulators for the overlap-aware effective sample size (candidates are in time order).
+    let mut block = [usize::MAX; 2];
+    let mut bsum = [0.0f64; 2];
     for &(d, j) in cand {
         let z = (d - dmin) * inv;
         if z > 30.0 {
@@ -275,12 +281,25 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
         let s = if prm.regime { state[j] as usize } else { 0 };
         let w = (-z).exp();
         sw[s] += w;
-        sw2[s] += w * w;
+        if prm.kernel_block > 0 {
+            let b = j / prm.kernel_block;
+            if b != block[s] {
+                sw2[s] += bsum[s] * bsum[s];
+                bsum[s] = 0.0;
+                block[s] = b;
+            }
+            bsum[s] += w;
+        } else {
+            sw2[s] += w * w;
+        }
         for c in 0..p {
             let v = y[j * p + c];
             sy[c][s] += w * v;
             syy[c][s] += w * v * v;
         }
+    }
+    for s in 0..2 {
+        sw2[s] += bsum[s] * bsum[s]; // flush the last block (zero when kernel_block == 0)
     }
     let neff = [sw[0] * sw[0] / sw2[0].max(1e-300), sw[1] * sw[1] / sw2[1].max(1e-300)];
     let pi1 = if prm.regime { markov_pi_high(state, pre, t, prm.lookback, prm.h) } else { 0.0 };

@@ -75,6 +75,15 @@ Sharpe differences.
 stop-first on ambiguous bars, gaps fill at the open, 5 bp per side (1 bp shown for v1 as in the
 original). **Overlay**: long-only, no leverage, 5 bp per unit turnover, 0.1 rebalance band.
 
+## Recommended settings for new work
+
+The paper's results use the pre-registered kNN analogue (`vol.HOURLY`, `vol.DAILY_W`,
+`vol.DAILY_M`), which stay unchanged so every number reproduces. The Gaussian kernel won the
+pre-registered comparison with kNN (H4), so new work should start from `vol.RECOMMENDED`
+(`bandwidth=0.6`, `kernel_block=True`). `kernel_block` treats each block of `h` consecutive anchors
+as one observation when computing the effective sample size, because their outcome windows overlap;
+it changes standard errors and the minimum-sample gate, not the forecast mean.
+
 ## Data
 
 **Binance access.** Binance's REST API refuses some regions (e.g. HTTP 451 in the US). The loader
