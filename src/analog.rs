@@ -38,7 +38,11 @@ pub fn embed(r: &[f64], sigma: &[f64], w: usize, m: usize, normalize: bool) -> V
     }
     let mut out = vec![f64::NAN; n * m];
     for j in w..n {
-        let scale = if normalize { sigma[j] * (g as f64).sqrt() } else { 1.0 };
+        let scale = if normalize {
+            sigma[j] * (g as f64).sqrt()
+        } else {
+            1.0
+        };
         for q in 0..m {
             let a = j + 1 - w + q * g; // first return in segment
             out[j * m + q] = (cs[a + g] - cs[a]) / scale;
@@ -52,8 +56,15 @@ pub fn embed(r: &[f64], sigma: &[f64], w: usize, m: usize, normalize: bool) -> V
 /// NaN where the outcome is not fully observed by bar j + max_hold + 1.
 #[allow(clippy::too_many_arguments)]
 pub fn labels(
-    o: &[f64], h: &[f64], l: &[f64], c: &[f64], atr: &[f64],
-    sl_mult: f64, rr: f64, max_hold: usize, cost: f64,
+    o: &[f64],
+    h: &[f64],
+    l: &[f64],
+    c: &[f64],
+    atr: &[f64],
+    sl_mult: f64,
+    rr: f64,
+    max_hold: usize,
+    cost: f64,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let n = c.len();
     let mut rl = vec![f64::NAN; n];
@@ -90,8 +101,16 @@ pub fn transition_prefix(state: &[u8]) -> Vec<[u32; 4]> {
 pub fn markov_pi_high(state: &[u8], pre: &[[u32; 4]], t: usize, lookback: usize, h: usize) -> f64 {
     let lo = t.saturating_sub(lookback).max(1) - 1; // transitions ending in (lo, t]
     let n: Vec<f64> = (0..4).map(|i| (pre[t][i] - pre[lo][i]) as f64).collect();
-    let a = if n[0] + n[1] > 0.0 { n[1] / (n[0] + n[1]) } else { 0.0 };
-    let b = if n[2] + n[3] > 0.0 { n[2] / (n[2] + n[3]) } else { 0.0 };
+    let a = if n[0] + n[1] > 0.0 {
+        n[1] / (n[0] + n[1])
+    } else {
+        0.0
+    };
+    let b = if n[2] + n[3] > 0.0 {
+        n[2] / (n[2] + n[3])
+    } else {
+        0.0
+    };
     let s0 = state[t] as f64;
     if a + b == 0.0 {
         return s0;
@@ -120,7 +139,14 @@ pub struct Selection {
     pub pi_high: f64,
 }
 
-fn candidates(t: usize, emb: &[f64], m: usize, y: &[f64], p: usize, prm: &Params) -> Option<Vec<(f64, usize)>> {
+fn candidates(
+    t: usize,
+    emb: &[f64],
+    m: usize,
+    y: &[f64],
+    p: usize,
+    prm: &Params,
+) -> Option<Vec<(f64, usize)>> {
     let x = &emb[t * m..t * m + m];
     if t < prm.warmup || t < prm.delay || x.iter().any(|v| !v.is_finite()) {
         return None;
@@ -144,7 +170,13 @@ fn candidates(t: usize, emb: &[f64], m: usize, y: &[f64], p: usize, prm: &Params
     )
 }
 
-fn select(t: usize, mut cand: Vec<(f64, usize)>, state: &[u8], pre: &[[u32; 4]], prm: &Params) -> Option<Selection> {
+fn select(
+    t: usize,
+    mut cand: Vec<(f64, usize)>,
+    state: &[u8],
+    pre: &[[u32; 4]],
+    prm: &Params,
+) -> Option<Selection> {
     let groups = if prm.regime { 2 } else { 1 };
     let mut acc: Vec<usize> = Vec::with_capacity(groups * prm.k);
     let mut grp: [Vec<usize>; 2] = [Vec::new(), Vec::new()];
@@ -180,7 +212,11 @@ fn select(t: usize, mut cand: Vec<(f64, usize)>, state: &[u8], pre: &[[u32; 4]],
             }
         }
     }
-    let pi1 = if prm.regime { markov_pi_high(state, pre, t, prm.lookback, prm.h) } else { 0.0 };
+    let pi1 = if prm.regime {
+        markov_pi_high(state, pre, t, prm.lookback, prm.h)
+    } else {
+        0.0
+    };
     let mut wts = if prm.regime { [1.0 - pi1, pi1] } else { [1.0, 0.0] };
     for s in 0..2 {
         if grp[s].len() < prm.k_min.max(2) {
@@ -191,18 +227,35 @@ fn select(t: usize, mut cand: Vec<(f64, usize)>, state: &[u8], pre: &[[u32; 4]],
     if wsum <= 0.0 {
         return None;
     }
-    Some(Selection { groups: grp, weights: [wts[0] / wsum, wts[1] / wsum], pi_high: pi1 })
+    Some(Selection {
+        groups: grp,
+        weights: [wts[0] / wsum, wts[1] / wsum],
+        pi_high: pi1,
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
-fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64], p: usize, prm: &Params) -> Vec<f64> {
+fn one(
+    t: usize,
+    emb: &[f64],
+    m: usize,
+    state: &[u8],
+    pre: &[[u32; 4]],
+    y: &[f64],
+    p: usize,
+    prm: &Params,
+) -> Vec<f64> {
     let width = 2 * p + 2;
     let nan = vec![f64::NAN; width];
-    let Some(cand) = candidates(t, emb, m, y, p, prm) else { return nan };
+    let Some(cand) = candidates(t, emb, m, y, p, prm) else {
+        return nan;
+    };
     if prm.bandwidth > 0.0 {
         return kernel(&cand, state, pre, y, p, prm, t);
     }
-    let Some(sel) = select(t, cand, state, pre, prm) else { return nan };
+    let Some(sel) = select(t, cand, state, pre, prm) else {
+        return nan;
+    };
     let mut out = vec![0.0; width];
     for s in 0..2 {
         let w = sel.weights[s];
@@ -229,7 +282,14 @@ fn one(t: usize, emb: &[f64], m: usize, state: &[u8], pre: &[[u32; 4]], y: &[f64
 /// kNN mode only: the analogue indices used at every bar and their weights (group weight / group
 /// size), as two n x (2k) arrays padded with -1 / 0. Lets callers compute any functional of the
 /// weighted analogue distribution (quantiles, expected shortfall).
-pub fn neighbours(emb: &[f64], m: usize, state: &[u8], y: &[f64], p: usize, prm: &Params) -> (Vec<i64>, Vec<f64>) {
+pub fn neighbours(
+    emb: &[f64],
+    m: usize,
+    state: &[u8],
+    y: &[f64],
+    p: usize,
+    prm: &Params,
+) -> (Vec<i64>, Vec<f64>) {
     let n = state.len();
     let width = 2 * prm.k;
     let pre = transition_prefix(state);
@@ -262,7 +322,15 @@ pub fn neighbours(emb: &[f64], m: usize, state: &[u8], y: &[f64], p: usize, prm:
 
 /// Kernel mode: every candidate j gets weight exp(-d_j^2 / (2 bw^2)); regime groups are mixed as in
 /// kNN mode. Standard errors use the Kish effective sample size (sum w)^2 / sum w^2.
-fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: usize, prm: &Params, t: usize) -> Vec<f64> {
+fn kernel(
+    cand: &[(f64, usize)],
+    state: &[u8],
+    pre: &[[u32; 4]],
+    y: &[f64],
+    p: usize,
+    prm: &Params,
+    t: usize,
+) -> Vec<f64> {
     let width = 2 * p + 2;
     let inv = 1.0 / (2.0 * prm.bandwidth * prm.bandwidth);
     let dmin = cand.iter().map(|c| c.0).fold(f64::INFINITY, f64::min); // stabilise exp()
@@ -301,8 +369,15 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
     for s in 0..2 {
         sw2[s] += bsum[s] * bsum[s]; // flush the last block (zero when kernel_block == 0)
     }
-    let neff = [sw[0] * sw[0] / sw2[0].max(1e-300), sw[1] * sw[1] / sw2[1].max(1e-300)];
-    let pi1 = if prm.regime { markov_pi_high(state, pre, t, prm.lookback, prm.h) } else { 0.0 };
+    let neff = [
+        sw[0] * sw[0] / sw2[0].max(1e-300),
+        sw[1] * sw[1] / sw2[1].max(1e-300),
+    ];
+    let pi1 = if prm.regime {
+        markov_pi_high(state, pre, t, prm.lookback, prm.h)
+    } else {
+        0.0
+    };
     let mut wts = if prm.regime { [1.0 - pi1, pi1] } else { [1.0, 0.0] };
     for s in 0..2 {
         if !(neff[s] >= prm.k_min.max(2) as f64) {
@@ -357,8 +432,19 @@ mod tests {
         let emb: Vec<f64> = (0..n).map(|i| i as f64).collect();
         let y = vec![1.0; n];
         let state = vec![0u8; n];
-        let prm = Params { w: 0, delay: 5, h: 5, lookback: 1000, k: 4, k_min: 2, excl: 5, regime: false,
-                           warmup: 0, bandwidth: 0.0, kernel_block: 0 };
+        let prm = Params {
+            w: 0,
+            delay: 5,
+            h: 5,
+            lookback: 1000,
+            k: 4,
+            k_min: 2,
+            excl: 5,
+            regime: false,
+            warmup: 0,
+            bandwidth: 0.0,
+            kernel_block: 0,
+        };
         let (idx, _) = neighbours(&emb, 1, &state, &y, 1, &prm);
         let row: Vec<i64> = idx[50 * 8..50 * 8 + 4].to_vec();
         assert_eq!(row, vec![45, 40, 35, 30]); // newest allowed anchor is t - delay; spaced >= excl

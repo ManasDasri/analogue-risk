@@ -35,7 +35,9 @@ pub fn atr(h: &[f64], l: &[f64], c: &[f64], len: usize) -> Vec<f64> {
             if t == 0 {
                 h[0] - l[0]
             } else {
-                (h[t] - l[t]).max((h[t] - c[t - 1]).abs()).max((l[t] - c[t - 1]).abs())
+                (h[t] - l[t])
+                    .max((h[t] - c[t - 1]).abs())
+                    .max((l[t] - c[t - 1]).abs())
             }
         })
         .collect();
@@ -59,7 +61,10 @@ pub fn stdev(x: &[f64], len: usize) -> Vec<f64> {
     let mean = sma(x, len);
     let sq: Vec<f64> = x.iter().map(|v| v * v).collect();
     let msq = sma(&sq, len);
-    mean.iter().zip(&msq).map(|(m, q)| (q - m * m).max(0.0).sqrt()).collect()
+    mean.iter()
+        .zip(&msq)
+        .map(|(m, q)| (q - m * m).max(0.0).sqrt())
+        .collect()
 }
 
 /// Rolling sum (Pine `math.sum`).
@@ -71,9 +76,17 @@ fn rolling(x: &[f64], len: usize, f: impl Fn(f64, usize) -> f64) -> Vec<f64> {
     let mut out = vec![f64::NAN; x.len()];
     let (mut s, mut nans) = (0.0, 0usize);
     for t in 0..x.len() {
-        if x[t].is_nan() { nans += 1 } else { s += x[t] }
+        if x[t].is_nan() {
+            nans += 1
+        } else {
+            s += x[t]
+        }
         if t >= len {
-            if x[t - len].is_nan() { nans -= 1 } else { s -= x[t - len] }
+            if x[t - len].is_nan() {
+                nans -= 1
+            } else {
+                s -= x[t - len]
+            }
         }
         if t + 1 >= len && nans == 0 {
             out[t] = f(s, len);

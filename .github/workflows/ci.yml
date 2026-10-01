@@ -6,28 +6,51 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: cargo fmt --check
+      - run: pip install ruff && ruff check python tests paper/make_tables.py results/dev && ruff format --check python tests paper/make_tables.py results/dev
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Build Rust core
+      - name: Build the Rust extension
         run: |
           python -m venv .venv
-          . .venv/bin/activate
-          pip install maturin numpy pandas scipy matplotlib tabulate pytest
+          if [ -f .venv/Scripts/activate ]; then . .venv/Scripts/activate; else . .venv/bin/activate; fi
+          pip install maturin numpy pandas scipy matplotlib scikit-learn tabulate pytest
           maturin develop --release
       - name: Clippy
         run: cargo clippy --release -- -D clippy::correctness
       - name: Rust unit tests
-        run: PYO3_PYTHON=$PWD/.venv/bin/python cargo test --release
-      - name: Tests
         run: |
-          . .venv/bin/activate
+          if [ -f .venv/Scripts/activate ]; then . .venv/Scripts/activate; else . .venv/bin/activate; fi
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" cargo test --release
+      - name: Python tests
+        run: |
+          if [ -f .venv/Scripts/activate ]; then . .venv/Scripts/activate; else . .venv/bin/activate; fi
           pytest -q tests

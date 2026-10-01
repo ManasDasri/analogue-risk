@@ -4,6 +4,7 @@ Target at bar t: log of the mean squared log return over bars t+1..t+h (realised
 Every forecaster is walk-forward: parameters for fold [a, b) are fitted only on rows whose
 targets are fully observed before a (t + h < a).
 """
+
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -17,20 +18,20 @@ FLOOR = 1e-3  # variance floor, as a fraction of the long-run level (stale bars 
 
 @dataclass(frozen=True)
 class VolConfig:
-    h: int = 24               # horizon (bars)
-    m: int = 4                # segments in the volatility-shape embedding
+    h: int = 24  # horizon (bars)
+    m: int = 4  # segments in the volatility-shape embedding
     long_halflife: float = 500
-    lookback: int = 10**9     # candidate history for analogues (default: all past bars)
-    bandwidth: float = 0.0    # > 0: Gaussian-kernel weights over all candidates; 0: k nearest
+    lookback: int = 10**9  # candidate history for analogues (default: all past bars)
+    bandwidth: float = 0.0  # > 0: Gaussian-kernel weights over all candidates; 0: k nearest
     kernel_block: bool = False  # kernel mode: overlap-aware effective sample size (blocks of h bars)
-    min_hist: int = 8760      # bars of history before the first forecast
+    min_hist: int = 8760  # bars of history before the first forecast
     k: int = 20
     k_min: int = 5
-    excl: int | None = None   # default: h (non-overlapping outcome windows)
+    excl: int | None = None  # default: h (non-overlapping outcome windows)
     regime: bool = True
     regime_len: int = 1000
     har: tuple = (1, 24, 168)
-    jump_c: float = 3.0       # raw jump: |r_t| > c * long-run sigma_{t-1}
+    jump_c: float = 3.0  # raw jump: |r_t| > c * long-run sigma_{t-1}
     gate_q: float = 0.9
 
     @property
@@ -43,8 +44,12 @@ class VolConfig:
 
     def __post_init__(self):
         if self.bandwidth == 0:
-            check_exclusion(self.k, self.regime, self.h if self.excl is None else self.excl,
-                            min(self.lookback, self.min_hist))
+            check_exclusion(
+                self.k,
+                self.regime,
+                self.h if self.excl is None else self.excl,
+                min(self.lookback, self.min_hist),
+            )
 
 
 HOURLY = VolConfig()
@@ -54,15 +59,17 @@ DAILY_M = VolConfig(h=22, min_hist=2000, k=10, regime_len=500, long_halflife=250
 # Recommended for new work: the Gaussian kernel won the pre-registered comparison with kNN (H4);
 # kernel_block makes its effective sample size account for overlapping outcome windows. The
 # presets above are kept unchanged so the published results reproduce exactly.
-RECOMMENDED = {name: replace(cfg, bandwidth=0.6, kernel_block=True)
-               for name, cfg in (("hourly", HOURLY), ("daily_w", DAILY_W), ("daily_m", DAILY_M))}
+RECOMMENDED = {
+    name: replace(cfg, bandwidth=0.6, kernel_block=True)
+    for name, cfg in (("hourly", HOURLY), ("daily_w", DAILY_W), ("daily_m", DAILY_M))
+}
 
 
 def _roll_mean(x, n):
     """Mean of x over (t-n, t], NaN before n values."""
     cs = np.r_[0.0, np.cumsum(x)]
     out = np.full(len(x), np.nan)
-    out[n - 1:] = (cs[n:] - cs[:-n]) / n
+    out[n - 1 :] = (cs[n:] - cs[:-n]) / n
     return out
 
 
@@ -82,9 +89,9 @@ class VolData:
         _, sig_long, _, _ = core.features(mkt.h, mkt.l, mkt.c, vc.long_halflife, 14, vc.regime_len)
         self.r, self.state = r, state
         self.r2 = r * r
-        self.long = sig_long ** 2
+        self.long = sig_long**2
         fl = FLOOR * self.long
-        self.target = np.log(np.maximum(_fwd_mean(self.r2, vc.h), fl))   # log future variance
+        self.target = np.log(np.maximum(_fwd_mean(self.r2, vc.h), fl))  # log future variance
         self.realised = _fwd_mean(self.r2, vc.h)
         prev_sig = np.r_[np.nan, sig_long[:-1]]
         self.jumps = np.abs(r) > vc.jump_c * prev_sig
@@ -92,8 +99,14 @@ class VolData:
         self.tail = np.where(np.isfinite(self.realised), _fwd_mean(j, vc.h) > 0, np.nan)
 
         # volatility-shape embedding: log variance of m past segments relative to the long-run level
-        segs = [np.log(np.maximum(np.r_[np.full(q * vc.seg, np.nan), _roll_mean(self.r2, vc.seg)[: len(r) - q * vc.seg]], fl))
-                for q in range(vc.m - 1, -1, -1)]
+        segs = [
+            np.log(
+                np.maximum(
+                    np.r_[np.full(q * vc.seg, np.nan), _roll_mean(self.r2, vc.seg)[: len(r) - q * vc.seg]], fl
+                )
+            )
+            for q in range(vc.m - 1, -1, -1)
+        ]
         self.emb = np.ascontiguousarray(np.column_stack(segs) - np.log(self.long)[:, None])
 
     def fit_rows(self, a):
@@ -103,21 +116,45 @@ class VolData:
 
 # ---------------------------------------------------------------- forecasters (log variance)
 
+
 def analogue(d, vc=None, **over):
     """Returns (log-variance forecast, tail probability, forecast output) for every bar."""
     vc = vc or d.vc
-    prm = dict(k=vc.k, k_min=vc.k_min, excl=vc.h if vc.excl is None else vc.excl, regime=vc.regime,
-               lookback=vc.lookback, bandwidth=vc.bandwidth, kernel_block=vc.kernel_block) | over
+    prm = (
+        dict(
+            k=vc.k,
+            k_min=vc.k_min,
+            excl=vc.h if vc.excl is None else vc.excl,
+            regime=vc.regime,
+            lookback=vc.lookback,
+            bandwidth=vc.bandwidth,
+            kernel_block=vc.kernel_block,
+        )
+        | over
+    )
     y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
-    F = core.forecast(d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, prm["lookback"], prm["k"],
-                      vc.k_min, prm["excl"], prm["regime"], vc.warmup, prm["bandwidth"],
-                      vc.h if prm["kernel_block"] else 0)
+    F = core.forecast(
+        d.emb,
+        d.state,
+        y,
+        vc.m * vc.seg,
+        vc.h,
+        vc.h,
+        prm["lookback"],
+        prm["k"],
+        vc.k_min,
+        prm["excl"],
+        prm["regime"],
+        vc.warmup,
+        prm["bandwidth"],
+        vc.h if prm["kernel_block"] else 0,
+    )
     return F[:, 0] + np.log(d.long), F[:, 1], F
 
 
 def ewma(d, halflife):
     _, sig, _, _ = core.features(d.mkt.h, d.mkt.l, d.mkt.c, float(halflife), 14, d.vc.regime_len)
-    return np.log(np.maximum(sig ** 2, FLOOR * d.long))
+    return np.log(np.maximum(sig**2, FLOOR * d.long))
 
 
 def garch(d, fit):
@@ -129,7 +166,7 @@ def garch(d, fit):
         a, b = 1 / (1 + np.exp(-x))
         if a + b >= 0.9999:
             return 1e12
-        _, ll = core.garch_filter(r[fit.start:fit.stop], (1 - a - b) * var, a, b, var, 0)
+        _, ll = core.garch_filter(r[fit.start : fit.stop], (1 - a - b) * var, a, b, var, 0)
         return -ll
 
     x = minimize(nll, [-2.5, 2.0], method="Nelder-Mead", options=dict(xatol=1e-6, fatol=1e-6)).x
@@ -137,7 +174,7 @@ def garch(d, fit):
     s2, _ = core.garch_filter(r, (1 - a - b) * var, a, b, var, 0)  # s2[t] = forecast for t+1
     p = a + b
     h = d.vc.h
-    mean_mult = (1 - p ** h) / (1 - p) / h  # average of p^(k-1), k = 1..h
+    mean_mult = (1 - p**h) / (1 - p) / h  # average of p^(k-1), k = 1..h
     return np.log(np.maximum(var + (s2 - var) * mean_mult, FLOOR * d.long)), (a, b)
 
 
@@ -156,14 +193,17 @@ def gbm(d, fit, seed=0):
     from sklearn.ensemble import HistGradientBoostingRegressor
 
     fl = FLOOR * d.long
-    X = np.column_stack([np.log(np.maximum(_roll_mean(d.r2, L), fl)) for L in d.vc.har]
-                        + [d.emb, d.state.astype(float), np.log(d.long)])
+    X = np.column_stack(
+        [np.log(np.maximum(_roll_mean(d.r2, L), fl)) for L in d.vc.har]
+        + [d.emb, d.state.astype(float), np.log(d.long)]
+    )
     rows = np.arange(len(d.r))[fit]
     ok = rows[np.isfinite(X[rows]).all(1) & np.isfinite(d.target[rows])]
     if len(ok) > 60000:
         ok = np.sort(np.random.default_rng(seed).choice(ok, 60000, replace=False))
-    model = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_leaf_nodes=31,
-                                          min_samples_leaf=50, random_state=seed)
+    model = HistGradientBoostingRegressor(
+        max_iter=300, learning_rate=0.05, max_leaf_nodes=31, min_samples_leaf=50, random_state=seed
+    )
     model.fit(X[ok], d.target[ok])
     out = np.full(len(d.r), np.nan)
     good = np.isfinite(X).all(1)
@@ -194,8 +234,14 @@ def walk_forward(d, bounds, halflives=(5, 10, 20, 50, 100, 200)):
         best_hl = min(halflives, key=lambda hl: np.nanmean(qlike(d.realised[v], ew[hl][v])))
         g, ab = garch(d, fit)
         hr = har(d, fit)
-        f = {"EWMA": ew[best_hl], "GARCH": g, "HAR": hr, "GBM": gbm(d, fit), "Analogue": ana,
-             "Analogue+HAR": (ana + hr) / 2}
+        f = {
+            "EWMA": ew[best_hl],
+            "GARCH": g,
+            "HAR": hr,
+            "GBM": gbm(d, fit),
+            "Analogue": ana,
+            "Analogue+HAR": (ana + hr) / 2,
+        }
         for k in ("HAR", "GBM", "Analogue", "Analogue+HAR"):
             vv = v & np.isfinite(f[k])
             f[k] = f[k] + np.log(np.mean(np.exp(d.target[vv] - f[k][vv])))
@@ -206,6 +252,7 @@ def walk_forward(d, bounds, halflives=(5, 10, 20, 50, 100, 200)):
 
 
 # ---------------------------------------------------------------- tail events
+
 
 def logistic_fit(x, y):
     X = np.column_stack([np.ones(len(x)), x])
@@ -230,11 +277,15 @@ def tail_forecasts(d, bounds, ew_log):
         fit = d.fit_rows(a)
         y = d.tail[fit]
         ok = np.isfinite(y) & np.isfinite(x[fit])
-        mu, al, be = fit_hawkes(d.jumps[d.vc.warmup:a])
+        mu, al, be = fit_hawkes(d.jumps[d.vc.warmup : a])
         w = logistic_fit(x[fit][ok], y[ok])
-        f = {"Constant": np.full(n, np.nanmean(y)), "Poisson (v1)": pois,
-             "Hawkes": core.hawkes_prob(d.jumps, mu, al, be, float(d.vc.h)),
-             "Logistic-EWMA": 1 / (1 + np.exp(-(w[0] + w[1] * x))), "Analogue": ana_p}
+        f = {
+            "Constant": np.full(n, np.nanmean(y)),
+            "Poisson (v1)": pois,
+            "Hawkes": core.hawkes_prob(d.jumps, mu, al, be, float(d.vc.h)),
+            "Logistic-EWMA": 1 / (1 + np.exp(-(w[0] + w[1] * x))),
+            "Analogue": ana_p,
+        }
         for k in names:
             out[k][a:b] = f[k][a:b]
     return {k: np.clip(v, 0.01, 0.99) for k, v in out.items()}
@@ -242,13 +293,14 @@ def tail_forecasts(d, bounds, ew_log):
 
 # ---------------------------------------------------------------- economic overlay
 
+
 def overlay(d, log_f, a, cap=1.0, band=0.1, cost_bps=5.0, gate=None, kind="vol"):
     """Long exposure scaled by the variance forecast, decided at close t, earning bar t+1.
     kind='vol': w = sigma_target / sigma_hat;  kind='kelly': w = sigma_target^2 / sigma_hat^2
     (variance-managed, the Kelly-optimal scaling for a constant expected return).
     sigma_target is the asset's average per-bar variance before `a`. Weights move only when the
     target drifts more than `band` from the current weight. `gate` (bool array) forces w = 0."""
-    tgt = np.nanmean(d.r2[d.vc.warmup:a])
+    tgt = np.nanmean(d.r2[d.vc.warmup : a])
     raw = tgt / np.exp(log_f)
     raw = np.sqrt(raw) if kind == "vol" else raw
     raw = np.clip(np.nan_to_num(raw), 0, cap)

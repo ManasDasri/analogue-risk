@@ -1,4 +1,5 @@
 """StochQuant v2 strategy, the v1 (Pine) baseline and simple benchmarks, on top of the Rust core."""
+
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -10,32 +11,32 @@ from . import _core as core
 @dataclass(frozen=True)
 class Config:
     # analogue matcher
-    w: int = 20              # pattern window (bars)
-    m: int = 4               # segments in the window; m=1 is the v1 single-return feature
-    normalize: bool = True   # scale segment returns by EWMA volatility
-    lookback: int = 10**9    # candidate history (bars); default: all past bars
-    min_hist: int = 4000     # bars of history before the first forecast
-    k: int = 20              # analogues per regime
+    w: int = 20  # pattern window (bars)
+    m: int = 4  # segments in the window; m=1 is the v1 single-return feature
+    normalize: bool = True  # scale segment returns by EWMA volatility
+    lookback: int = 10**9  # candidate history (bars); default: all past bars
+    min_hist: int = 4000  # bars of history before the first forecast
+    k: int = 20  # analogues per regime
     k_min: int = 5
-    excl: int = 20           # exclusion zone between analogues (bars); 0 disables
-    regime: bool = True      # Markov regime mixture; False pools all analogues
-    regime_len: int = 1000   # ATR moving average defining the regime
+    excl: int = 20  # exclusion zone between analogues (bars); 0 disables
+    regime: bool = True  # Markov regime mixture; False pools all analogues
+    regime_len: int = 1000  # ATR moving average defining the regime
     vol_halflife: float = 50
     # trade rule (identical to v1 defaults)
-    h: int = 20              # max holding period (bars)
-    sl_mult: float = 2.5     # stop = sl_mult * ATR(14)
-    rr: float = 1.5          # target = rr * stop
+    h: int = 20  # max holding period (bars)
+    sl_mult: float = 2.5  # stop = sl_mult * ATR(14)
+    rr: float = 1.5  # target = rr * stop
     # decision
-    z: float = 1.0           # enter when E[R] - z*se > 0
-    gate: str = "hawkes"     # hawkes | poisson | none
-    jump_c: float = 2.5      # jump = |r_t| > c * sigma_{t-1}
-    gate_q: float = 0.9      # suppress when P(jump) exceeds this quantile of the calibration period
-    sizing: str = "kelly"    # kelly | fixed
+    z: float = 1.0  # enter when E[R] - z*se > 0
+    gate: str = "hawkes"  # hawkes | poisson | none
+    jump_c: float = 2.5  # jump = |r_t| > c * sigma_{t-1}
+    gate_q: float = 0.9  # suppress when P(jump) exceeds this quantile of the calibration period
+    sizing: str = "kelly"  # kelly | fixed
     kelly_frac: float = 0.5
-    max_risk: float = 0.02   # max fraction of equity risked per trade
+    max_risk: float = 0.02  # max fraction of equity risked per trade
     fixed_risk: float = 0.01
     lev_cap: float = 1.0
-    cost_bps: float = 5.0    # per side
+    cost_bps: float = 5.0  # per side
 
     @property
     def warmup(self):
@@ -54,8 +55,10 @@ def check_exclusion(k, regime, excl, history):
     sample of the history instead of close matches."""
     need = (2 if regime else 1) * k * max(excl, 1)
     if need > history / 4:
-        raise ValueError(f"{need} bars needed for {k} analogues/regime at spacing {excl}, "
-                         f"but only {history} bars of history; lengthen history or reduce k/excl")
+        raise ValueError(
+            f"{need} bars needed for {k} analogues/regime at spacing {excl}, "
+            f"but only {history} bars of history; lengthen history or reduce k/excl"
+        )
 
 
 class Market:
@@ -63,8 +66,9 @@ class Market:
 
     def __init__(self, df):
         self.df = df
-        self.o, self.h, self.l, self.c = (np.ascontiguousarray(df[k].to_numpy(float))
-                                          for k in ("open", "high", "low", "close"))
+        self.o, self.h, self.l, self.c = (
+            np.ascontiguousarray(df[k].to_numpy(float)) for k in ("open", "high", "low", "close")
+        )
         self.n = len(df)
         years = (df.index[-1] - df.index[0]).total_seconds() / (365.25 * 86400)
         self.ppy = self.n / years  # bars per year, empirical
@@ -76,27 +80,60 @@ class Market:
         return self._cache[key]
 
     def features(self, cfg):
-        return self._memo(("f", cfg.vol_halflife, cfg.regime_len), lambda: core.features(
-            self.h, self.l, self.c, cfg.vol_halflife, 14, cfg.regime_len))
+        return self._memo(
+            ("f", cfg.vol_halflife, cfg.regime_len),
+            lambda: core.features(self.h, self.l, self.c, cfg.vol_halflife, 14, cfg.regime_len),
+        )
 
     def forecast(self, cfg):
-        key = ("F", cfg.w, cfg.m, cfg.normalize, cfg.lookback, cfg.k, cfg.k_min, cfg.excl, cfg.regime,
-               cfg.regime_len, cfg.vol_halflife, cfg.h, cfg.sl_mult, cfg.rr, cfg.cost_bps)
+        key = (
+            "F",
+            cfg.w,
+            cfg.m,
+            cfg.normalize,
+            cfg.lookback,
+            cfg.k,
+            cfg.k_min,
+            cfg.excl,
+            cfg.regime,
+            cfg.regime_len,
+            cfg.vol_halflife,
+            cfg.h,
+            cfg.sl_mult,
+            cfg.rr,
+            cfg.cost_bps,
+        )
 
         def run():
             r, sig, atr, state = self.features(cfg)
             rl, rs, up = self.labels(cfg)
             emb = core.embed(r, sig, cfg.w, cfg.m, cfg.normalize)
             y = np.column_stack([rl, rs, up, rl * rl, rs * rs])
-            return core.forecast(emb, state, y, cfg.w, cfg.h + 1, cfg.h, cfg.lookback, cfg.k,
-                                 cfg.k_min, cfg.excl, cfg.regime, cfg.warmup)
+            return core.forecast(
+                emb,
+                state,
+                y,
+                cfg.w,
+                cfg.h + 1,
+                cfg.h,
+                cfg.lookback,
+                cfg.k,
+                cfg.k_min,
+                cfg.excl,
+                cfg.regime,
+                cfg.warmup,
+            )
+
         return self._memo(key, run)
 
     def labels(self, cfg):
         _, _, atr, _ = self.features(cfg)
-        return self._memo(("L", cfg.sl_mult, cfg.rr, cfg.h, cfg.cost_bps, cfg.vol_halflife, cfg.regime_len),
-                          lambda: core.labels(self.o, self.h, self.l, self.c, atr, cfg.sl_mult, cfg.rr,
-                                              cfg.h, cfg.cost_bps / 1e4))
+        return self._memo(
+            ("L", cfg.sl_mult, cfg.rr, cfg.h, cfg.cost_bps, cfg.vol_halflife, cfg.regime_len),
+            lambda: core.labels(
+                self.o, self.h, self.l, self.c, atr, cfg.sl_mult, cfg.rr, cfg.h, cfg.cost_bps / 1e4
+            ),
+        )
 
     def jumps(self, cfg):
         r, sig, _, _ = self.features(cfg)
@@ -104,13 +141,32 @@ class Market:
         return np.abs(r) > cfg.jump_c * prev  # NaN -> False
 
     def backtest(self, dir_, stop, size, cfg, **kw):
-        args = dict(rr=cfg.rr, max_hold=cfg.h, cost=cfg.cost_bps / 1e4, protect_entry=True,
-                    close_on_opposite=False, risk_sizing=True, lev_cap=cfg.lev_cap) | kw
-        return core.backtest(self.o, self.h, self.l, self.c, np.ascontiguousarray(dir_, np.int8),
-                             np.ascontiguousarray(stop, float), np.ascontiguousarray(size, float), **args)
+        args = (
+            dict(
+                rr=cfg.rr,
+                max_hold=cfg.h,
+                cost=cfg.cost_bps / 1e4,
+                protect_entry=True,
+                close_on_opposite=False,
+                risk_sizing=True,
+                lev_cap=cfg.lev_cap,
+            )
+            | kw
+        )
+        return core.backtest(
+            self.o,
+            self.h,
+            self.l,
+            self.c,
+            np.ascontiguousarray(dir_, np.int8),
+            np.ascontiguousarray(stop, float),
+            np.ascontiguousarray(size, float),
+            **args,
+        )
 
 
 # ---------------------------------------------------------------- tail-risk gate
+
 
 def fit_hawkes(events):
     """MLE of (mu, alpha, beta) for the exponential Hawkes process on a boolean event series."""
@@ -142,7 +198,7 @@ def jump_prob(mkt, cfg, fit_end, kind=None):
     ev = mkt.jumps(cfg)
     kind = kind or cfg.gate
     if kind == "hawkes":
-        mu, a, b = fit_hawkes(ev[cfg.warmup:fit_end])
+        mu, a, b = fit_hawkes(ev[cfg.warmup : fit_end])
         return core.hawkes_prob(ev, mu, a, b, float(cfg.h))
     if kind == "poisson":
         return poisson_prob(ev, cfg.h)
@@ -157,7 +213,7 @@ def gate_allow(mkt, cfg, bounds):
         return allow
     for i, (a, b) in enumerate(bounds):
         p = jump_prob(mkt, cfg, a)
-        thr = np.nanquantile(p[cfg.warmup:a], cfg.gate_q)
+        thr = np.nanquantile(p[cfg.warmup : a], cfg.gate_q)
         lo = 0 if i == 0 else a
         allow[lo:b] = ~(p[lo:b] > thr)
     return allow
@@ -194,16 +250,29 @@ def run_v2(mkt, cfg, allow):
 
 def run_v1(mkt, cost_bps):
     d, stop, size, adj, pj = core.legacy_v1(mkt.h, mkt.l, mkt.c)
-    eq, trades = core.backtest(mkt.o, mkt.h, mkt.l, mkt.c, d, stop, size, rr=1.5, max_hold=21,
-                               cost=cost_bps / 1e4, protect_entry=False, close_on_opposite=True,
-                               risk_sizing=False, lev_cap=1.0)
+    eq, trades = core.backtest(
+        mkt.o,
+        mkt.h,
+        mkt.l,
+        mkt.c,
+        d,
+        stop,
+        size,
+        rr=1.5,
+        max_hold=21,
+        cost=cost_bps / 1e4,
+        protect_entry=False,
+        close_on_opposite=True,
+        risk_sizing=False,
+        lev_cap=1.0,
+    )
     return dict(eq=eq, trades=trades, dir=d, adj=adj, jump_prob=pj)
 
 
 def run_momentum(mkt, cfg):
     """Time-series momentum with the same exits and fixed 1% risk."""
     _, _, atr, _ = mkt.features(cfg)
-    d = np.sign(mkt.c - np.r_[np.full(cfg.w, np.nan), mkt.c[:-cfg.w]])
+    d = np.sign(mkt.c - np.r_[np.full(cfg.w, np.nan), mkt.c[: -cfg.w]])
     d = np.nan_to_num(d).astype(np.int8)
     d[: cfg.warmup] = 0
     eq, trades = mkt.backtest(d, cfg.sl_mult * atr, np.full(mkt.n, cfg.fixed_risk), cfg)
@@ -231,7 +300,7 @@ def walk_forward(mkt, base, grid, allow, bounds, score):
     out = np.zeros(mkt.n)
     chosen = []
     for a, b in bounds:
-        best = max(grid, key=lambda g: score(rets[g][base.warmup:a]))
+        best = max(grid, key=lambda g: score(rets[g][base.warmup : a]))
         chosen.append(best)
         out[a:b] = rets[best][a:b]
     return out, chosen, runs

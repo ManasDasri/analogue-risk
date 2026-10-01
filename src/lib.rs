@@ -21,33 +21,68 @@ fn to2d<'py>(py: Python<'py>, flat: Vec<f64>, cols: usize) -> PyResult<Bound<'py
 #[pyfunction]
 #[pyo3(name = "features")]
 fn py_features<'py>(
-    py: Python<'py>, h: PyReadonlyArray1<f64>, l: PyReadonlyArray1<f64>, c: PyReadonlyArray1<f64>,
-    halflife: f64, atr_len: usize, regime_len: usize,
+    py: Python<'py>,
+    h: PyReadonlyArray1<f64>,
+    l: PyReadonlyArray1<f64>,
+    c: PyReadonlyArray1<f64>,
+    halflife: f64,
+    atr_len: usize,
+    regime_len: usize,
 ) -> PyResult<(A1<'py>, A1<'py>, A1<'py>, Bound<'py, PyArray1<u8>>)> {
     let (h, l, c) = (h.as_slice()?, l.as_slice()?, c.as_slice()?);
     let r = features::log_returns(c);
     let sig = features::ewma_vol(&r, halflife);
     let a = features::atr(h, l, c, atr_len);
     let st = features::regime(&a, regime_len);
-    Ok((r.into_pyarray(py), sig.into_pyarray(py), a.into_pyarray(py), st.into_pyarray(py)))
+    Ok((
+        r.into_pyarray(py),
+        sig.into_pyarray(py),
+        a.into_pyarray(py),
+        st.into_pyarray(py),
+    ))
 }
 
 #[pyfunction]
 fn embed<'py>(
-    py: Python<'py>, r: PyReadonlyArray1<f64>, sigma: PyReadonlyArray1<f64>, w: usize, m: usize, normalize: bool,
+    py: Python<'py>,
+    r: PyReadonlyArray1<f64>,
+    sigma: PyReadonlyArray1<f64>,
+    w: usize,
+    m: usize,
+    normalize: bool,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
-    to2d(py, analog::embed(r.as_slice()?, sigma.as_slice()?, w, m, normalize), m)
+    to2d(
+        py,
+        analog::embed(r.as_slice()?, sigma.as_slice()?, w, m, normalize),
+        m,
+    )
 }
 
 /// (R long, R short, up) per anchor for the trade rule (stop = sl_mult*ATR, target = rr*stop).
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
 fn labels<'py>(
-    py: Python<'py>, o: PyReadonlyArray1<f64>, h: PyReadonlyArray1<f64>, l: PyReadonlyArray1<f64>,
-    c: PyReadonlyArray1<f64>, atr: PyReadonlyArray1<f64>, sl_mult: f64, rr: f64, max_hold: usize, cost: f64,
+    py: Python<'py>,
+    o: PyReadonlyArray1<f64>,
+    h: PyReadonlyArray1<f64>,
+    l: PyReadonlyArray1<f64>,
+    c: PyReadonlyArray1<f64>,
+    atr: PyReadonlyArray1<f64>,
+    sl_mult: f64,
+    rr: f64,
+    max_hold: usize,
+    cost: f64,
 ) -> PyResult<(A1<'py>, A1<'py>, A1<'py>)> {
     let (rl, rs, up) = analog::labels(
-        o.as_slice()?, h.as_slice()?, l.as_slice()?, c.as_slice()?, atr.as_slice()?, sl_mult, rr, max_hold, cost,
+        o.as_slice()?,
+        h.as_slice()?,
+        l.as_slice()?,
+        c.as_slice()?,
+        atr.as_slice()?,
+        sl_mult,
+        rr,
+        max_hold,
+        cost,
     );
     Ok((rl.into_pyarray(py), rs.into_pyarray(py), up.into_pyarray(py)))
 }
@@ -58,13 +93,37 @@ fn labels<'py>(
 #[pyo3(signature = (emb, state, y, w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth=0.0, kernel_block=0))]
 #[allow(clippy::too_many_arguments)]
 fn forecast<'py>(
-    py: Python<'py>, emb: PyReadonlyArray2<f64>, state: PyReadonlyArray1<u8>, y: PyReadonlyArray2<f64>,
-    w: usize, delay: usize, h: usize, lookback: usize, k: usize, k_min: usize, excl: usize, regime: bool,
-    warmup: usize, bandwidth: f64, kernel_block: usize,
+    py: Python<'py>,
+    emb: PyReadonlyArray2<f64>,
+    state: PyReadonlyArray1<u8>,
+    y: PyReadonlyArray2<f64>,
+    w: usize,
+    delay: usize,
+    h: usize,
+    lookback: usize,
+    k: usize,
+    k_min: usize,
+    excl: usize,
+    regime: bool,
+    warmup: usize,
+    bandwidth: f64,
+    kernel_block: usize,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let (m, p) = (emb.as_array().ncols(), y.as_array().ncols());
     let (e, st, y) = (emb.as_slice()?, state.as_slice()?, y.as_slice()?);
-    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth, kernel_block };
+    let prm = analog::Params {
+        w,
+        delay,
+        h,
+        lookback,
+        k,
+        k_min,
+        excl,
+        regime,
+        warmup,
+        bandwidth,
+        kernel_block,
+    };
     let flat = py.detach(|| analog::forecast(e, m, st, y, p, &prm));
     to2d(py, flat, 2 * p + 2)
 }
@@ -73,20 +132,50 @@ fn forecast<'py>(
 #[pyfunction]
 #[allow(clippy::too_many_arguments)]
 fn neighbours<'py>(
-    py: Python<'py>, emb: PyReadonlyArray2<f64>, state: PyReadonlyArray1<u8>, y: PyReadonlyArray2<f64>,
-    w: usize, delay: usize, h: usize, lookback: usize, k: usize, k_min: usize, excl: usize, regime: bool,
+    py: Python<'py>,
+    emb: PyReadonlyArray2<f64>,
+    state: PyReadonlyArray1<u8>,
+    y: PyReadonlyArray2<f64>,
+    w: usize,
+    delay: usize,
+    h: usize,
+    lookback: usize,
+    k: usize,
+    k_min: usize,
+    excl: usize,
+    regime: bool,
     warmup: usize,
 ) -> PyResult<(Bound<'py, PyArray2<i64>>, Bound<'py, PyArray2<f64>>)> {
     let (m, p) = (emb.as_array().ncols(), y.as_array().ncols());
     let (e, st, y) = (emb.as_slice()?, state.as_slice()?, y.as_slice()?);
-    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth: 0.0, kernel_block: 0 };
+    let prm = analog::Params {
+        w,
+        delay,
+        h,
+        lookback,
+        k,
+        k_min,
+        excl,
+        regime,
+        warmup,
+        bandwidth: 0.0,
+        kernel_block: 0,
+    };
     let (idx, wt) = py.detach(|| analog::neighbours(e, m, st, y, p, &prm));
-    Ok((idx.into_pyarray(py).reshape([st.len(), 2 * k])?, to2d(py, wt, 2 * k)?))
+    Ok((
+        idx.into_pyarray(py).reshape([st.len(), 2 * k])?,
+        to2d(py, wt, 2 * k)?,
+    ))
 }
 
 /// Expanding alpha-quantile and expected shortfall over finite z[start..=t], for every t.
 #[pyfunction]
-fn expanding_tail<'py>(py: Python<'py>, z: PyReadonlyArray1<f64>, start: usize, alpha: f64) -> PyResult<(A1<'py>, A1<'py>)> {
+fn expanding_tail<'py>(
+    py: Python<'py>,
+    z: PyReadonlyArray1<f64>,
+    start: usize,
+    alpha: f64,
+) -> PyResult<(A1<'py>, A1<'py>)> {
     let z = z.as_slice()?;
     let (q, es) = py.detach(|| tails::expanding_tail(z, start, alpha));
     Ok((q.into_pyarray(py), es.into_pyarray(py)))
@@ -94,7 +183,12 @@ fn expanding_tail<'py>(py: Python<'py>, z: PyReadonlyArray1<f64>, start: usize, 
 
 /// Rolling alpha-quantile and expected shortfall over the last `window` values, for every t.
 #[pyfunction]
-fn rolling_tail<'py>(py: Python<'py>, r: PyReadonlyArray1<f64>, window: usize, alpha: f64) -> PyResult<(A1<'py>, A1<'py>)> {
+fn rolling_tail<'py>(
+    py: Python<'py>,
+    r: PyReadonlyArray1<f64>,
+    window: usize,
+    alpha: f64,
+) -> PyResult<(A1<'py>, A1<'py>)> {
     let r = r.as_slice()?;
     let (q, es) = py.detach(|| tails::rolling_tail(r, window, alpha));
     Ok((q.into_pyarray(py), es.into_pyarray(py)))
@@ -103,7 +197,13 @@ fn rolling_tail<'py>(py: Python<'py>, r: PyReadonlyArray1<f64>, window: usize, a
 /// Zero-mean GARCH(1,1): (one-step variance forecasts, log-likelihood from `start`).
 #[pyfunction]
 fn garch_filter<'py>(
-    py: Python<'py>, r: PyReadonlyArray1<f64>, omega: f64, alpha: f64, beta: f64, s2_0: f64, start: usize,
+    py: Python<'py>,
+    r: PyReadonlyArray1<f64>,
+    omega: f64,
+    alpha: f64,
+    beta: f64,
+    s2_0: f64,
+    start: usize,
 ) -> PyResult<(A1<'py>, f64)> {
     let (s2, ll) = garch::filter(r.as_slice()?, omega, alpha, beta, s2_0, start);
     Ok((s2.into_pyarray(py), ll))
@@ -116,7 +216,12 @@ fn hawkes_loglik(times: PyReadonlyArray1<f64>, t_end: f64, mu: f64, alpha: f64, 
 
 #[pyfunction]
 fn hawkes_prob<'py>(
-    py: Python<'py>, events: PyReadonlyArray1<bool>, mu: f64, alpha: f64, beta: f64, h: f64,
+    py: Python<'py>,
+    events: PyReadonlyArray1<bool>,
+    mu: f64,
+    alpha: f64,
+    beta: f64,
+    h: f64,
 ) -> PyResult<A1<'py>> {
     Ok(hawkes::prob(events.as_slice()?, mu, alpha, beta, h).into_pyarray(py))
 }
@@ -126,12 +231,31 @@ fn hawkes_prob<'py>(
 #[allow(clippy::too_many_arguments)]
 #[pyo3(name = "backtest")]
 fn py_backtest<'py>(
-    py: Python<'py>, o: PyReadonlyArray1<f64>, h: PyReadonlyArray1<f64>, l: PyReadonlyArray1<f64>,
-    c: PyReadonlyArray1<f64>, dir: PyReadonlyArray1<i8>, stop_dist: PyReadonlyArray1<f64>,
-    size: PyReadonlyArray1<f64>, rr: f64, max_hold: usize, cost: f64, protect_entry: bool,
-    close_on_opposite: bool, risk_sizing: bool, lev_cap: f64,
+    py: Python<'py>,
+    o: PyReadonlyArray1<f64>,
+    h: PyReadonlyArray1<f64>,
+    l: PyReadonlyArray1<f64>,
+    c: PyReadonlyArray1<f64>,
+    dir: PyReadonlyArray1<i8>,
+    stop_dist: PyReadonlyArray1<f64>,
+    size: PyReadonlyArray1<f64>,
+    rr: f64,
+    max_hold: usize,
+    cost: f64,
+    protect_entry: bool,
+    close_on_opposite: bool,
+    risk_sizing: bool,
+    lev_cap: f64,
 ) -> PyResult<(A1<'py>, Bound<'py, PyDict>)> {
-    let p = backtest::Params { rr, max_hold, cost, protect_entry, close_on_opposite, risk_sizing, lev_cap };
+    let p = backtest::Params {
+        rr,
+        max_hold,
+        cost,
+        protect_entry,
+        close_on_opposite,
+        risk_sizing,
+        lev_cap,
+    };
     let (o, h, l, c) = (o.as_slice()?, h.as_slice()?, l.as_slice()?, c.as_slice()?);
     let (d, s, z) = (dir.as_slice()?, stop_dist.as_slice()?, size.as_slice()?);
     let (eq, t) = py.detach(|| backtest::run(o, h, l, c, d, s, z, &p));
@@ -150,13 +274,19 @@ fn py_backtest<'py>(
 /// Original Pine strategy: (dir, stop_dist, notional size fraction, adjusted bull prob, jump prob).
 #[pyfunction]
 fn legacy_v1<'py>(
-    py: Python<'py>, h: PyReadonlyArray1<f64>, l: PyReadonlyArray1<f64>, c: PyReadonlyArray1<f64>,
+    py: Python<'py>,
+    h: PyReadonlyArray1<f64>,
+    l: PyReadonlyArray1<f64>,
+    c: PyReadonlyArray1<f64>,
 ) -> PyResult<(Bound<'py, PyArray1<i8>>, A1<'py>, A1<'py>, A1<'py>, A1<'py>)> {
     let (h, l, c) = (h.as_slice()?, l.as_slice()?, c.as_slice()?);
     let o = py.detach(|| legacy::signals(h, l, c));
     Ok((
-        o.dir.into_pyarray(py), o.stop_dist.into_pyarray(py), o.size.into_pyarray(py),
-        o.adj_prob_bull.into_pyarray(py), o.jump_prob.into_pyarray(py),
+        o.dir.into_pyarray(py),
+        o.stop_dist.into_pyarray(py),
+        o.size.into_pyarray(py),
+        o.adj_prob_bull.into_pyarray(py),
+        o.jump_prob.into_pyarray(py),
     ))
 }
 

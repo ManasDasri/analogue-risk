@@ -4,15 +4,16 @@ Every series used in the paper is pinned in data_manifest.json (last bar, row co
 the cleaned data). Loading a pinned series truncates it to that bar and checks the hash, so a
 fresh download reproduces the published data exactly or warns that the source has changed.
 """
+
 import hashlib
 import io
 import json
 import os
-import urllib.error
-import zipfile
-import warnings
 import time
+import urllib.error
 import urllib.request
+import warnings
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -43,7 +44,7 @@ def _get(url):
         except Exception:
             if attempt == 4:
                 raise
-            time.sleep(2 ** attempt)
+            time.sleep(2**attempt)
 
 
 def digest(df):
@@ -64,9 +65,11 @@ def _cached(name, fetch):
         return df.iloc[:-1]  # unpinned: the final bar may still be forming
     df = df[df.index <= pd.Timestamp(pin["end"])]
     if len(df) != pin["rows"] or digest(df) != pin["sha256"]:
-        warnings.warn(f"{name}: data differs from the pinned snapshot ({len(df)} rows vs {pin['rows']}); "
-                      "the source may have revised its history, so results can differ from the paper",
-                      stacklevel=2)
+        warnings.warn(
+            f"{name}: data differs from the pinned snapshot ({len(df)} rows vs {pin['rows']}); "
+            "the source may have revised its history, so results can differ from the paper",
+            stacklevel=2,
+        )
     return df
 
 
@@ -79,6 +82,7 @@ def _clean(df):
 def binance(symbol, interval="1h", start="2018-01-01"):
     """Binance spot klines. Uses the REST API, or the public bulk archive (data.binance.vision) when
     the API is unreachable or geo-blocked (HTTP 451/403), or when SQ_BINANCE_SOURCE=archive."""
+
     def fetch():
         if os.environ.get("SQ_BINANCE_SOURCE") != "archive":
             try:
@@ -103,8 +107,10 @@ def _klines_frame(rows):
 def _binance_api(symbol, interval, start):
     rows, t = [], int(pd.Timestamp(start, tz="UTC").timestamp() * 1000)
     while True:
-        batch = _get(f"https://api.binance.com/api/v3/klines?symbol={symbol}"
-                     f"&interval={interval}&startTime={t}&limit=1000")
+        batch = _get(
+            f"https://api.binance.com/api/v3/klines?symbol={symbol}"
+            f"&interval={interval}&startTime={t}&limit=1000"
+        )
         if not batch:
             break
         rows += batch
@@ -131,7 +137,9 @@ def _binance_archive(symbol, interval, start):
             rows += read(blob)
             continue
         for day in pd.date_range(month.start_time, min(month.end_time, today), freq="D"):
-            blob = _get_bytes(f"{base}/daily/klines/{symbol}/{interval}/{symbol}-{interval}-{day:%Y-%m-%d}.zip")
+            blob = _get_bytes(
+                f"{base}/daily/klines/{symbol}/{interval}/{symbol}-{interval}-{day:%Y-%m-%d}.zip"
+            )
             if blob is not None:
                 rows += read(blob)
     return _klines_frame(rows)
@@ -142,11 +150,14 @@ def yahoo(symbol, start="1990-01-01", adjusted=False):
     include distributions (dividends); it only matters for funds, since Yahoo's price indices have
     no adjusted series. Note: Yahoo rescales all past adjusted prices after every new dividend,
     so an adjusted snapshot is less stable than an unadjusted one."""
+
     def fetch():
         p1 = int(pd.Timestamp(start).timestamp())
         p2 = int(time.time())
-        j = _get(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-                 f"?period1={p1}&period2={p2}&interval=1d")["chart"]["result"][0]
+        j = _get(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+            f"?period1={p1}&period2={p2}&interval=1d"
+        )["chart"]["result"][0]
         q = j["indicators"]["quote"][0]
         df = pd.DataFrame({k: q[k] for k in COLS}, index=pd.to_datetime(j["timestamp"], unit="s"))
         if adjusted:

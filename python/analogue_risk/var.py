@@ -10,6 +10,7 @@ comparison isolates the *shape* of the conditional return distribution:
              k most similar past volatility states (regime-conditioned kNN, this paper)
 Returns are daily log returns; VaR and ES are reported as (negative) return quantiles.
 """
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -17,24 +18,33 @@ from scipy import stats as st
 from scipy.optimize import minimize_scalar
 
 from . import _core as core
-from .vol import VolConfig, VolData, garch
+from .vol import VolConfig, garch
 
 ALPHAS = (0.01, 0.025, 0.05)
 
 
 @dataclass(frozen=True)
 class VarConfig:
-    seg: int = 5             # days per segment of the volatility-shape embedding
+    seg: int = 5  # days per segment of the volatility-shape embedding
     m: int = 4
-    k: int = 250             # analogues per regime (tail quantiles need hundreds)
+    k: int = 250  # analogues per regime (tail quantiles need hundreds)
     regime: bool = True
     hs_window: int = 250
     min_hist: int = 2000
 
     def vol(self):
         # reuse the volatility-shape embedding; h = seg sets the segment length, the target is next-day
-        return VolConfig(h=self.seg, m=self.m, k=self.k, excl=1, regime=self.regime, min_hist=self.min_hist,
-                         regime_len=500, long_halflife=250, har=(1, 5, 22))
+        return VolConfig(
+            h=self.seg,
+            m=self.m,
+            k=self.k,
+            excl=1,
+            regime=self.regime,
+            min_hist=self.min_hist,
+            regime_len=500,
+            long_halflife=250,
+            har=(1, 5, 22),
+        )
 
 
 def weighted_tail(vals, w, alpha):
@@ -68,14 +78,17 @@ def forecasts(d, cfg, bounds):
     n = len(d.r)
     r = d.r
     r_next = np.r_[r[1:], np.nan]
-    out = {m: {a: (np.full(n, np.nan), np.full(n, np.nan)) for a in ALPHAS}
-           for m in ("HS", "GARCH-N", "GARCH-t", "FHS", "Analogue")}
+    out = {
+        m: {a: (np.full(n, np.nan), np.full(n, np.nan)) for a in ALPHAS}
+        for m in ("HS", "GARCH-N", "GARCH-t", "FHS", "Analogue")
+    }
 
     # analogue sets depend only on the embedding, not on the fold's GARCH fit
     vc = cfg.vol()
     y = np.ascontiguousarray(np.column_stack([r_next]))  # finiteness mask for anchors
-    idx, w = core.neighbours(d.emb, d.state, y, vc.m * vc.seg, 1, vc.seg, vc.lookback, vc.k, vc.k_min,
-                             1, vc.regime, vc.warmup)
+    idx, w = core.neighbours(
+        d.emb, d.state, y, vc.m * vc.seg, 1, vc.seg, vc.lookback, vc.k, vc.k_min, 1, vc.regime, vc.warmup
+    )
 
     # historical simulation (no fitting): rolling window of the last hs_window returns
     hs = {a: core.rolling_tail(r, cfg.hs_window, a) for a in ALPHAS}
@@ -84,10 +97,10 @@ def forecasts(d, cfg, bounds):
         fit = d.fit_rows(a_fold)
         _, (ga, gb) = garch(d, fit)
         var = r[fit].var()
-        s2_next, _ = core.garch_filter(r, (1 - ga - gb) * var, ga, gb, var, 0)   # forecast for t+1
+        s2_next, _ = core.garch_filter(r, (1 - ga - gb) * var, ga, gb, var, 0)  # forecast for t+1
         sig_next = np.sqrt(s2_next)
-        sig_now = np.r_[np.sqrt(var), sig_next[:-1]]                            # forecast made at t-1 for t
-        z = r / sig_now                                                         # standardised residual at t
+        sig_now = np.r_[np.sqrt(var), sig_next[:-1]]  # forecast made at t-1 for t
+        z = r / sig_now  # standardised residual at t
         z_next = np.r_[z[1:], np.nan]
         nu = _t_nu(z[fit])
         sl = slice(a_fold, b_fold)
@@ -97,7 +110,7 @@ def forecasts(d, cfg, bounds):
             out["GARCH-N"][a][1][sl] = -sig_next[sl] * st.norm.pdf(qn) / a
             s = np.sqrt((nu - 2) / nu)
             qt = st.t.ppf(a, nu)
-            es_t = -st.t.pdf(qt, nu) / a * (nu + qt ** 2) / (nu - 1)
+            es_t = -st.t.pdf(qt, nu) / a * (nu + qt**2) / (nu - 1)
             out["GARCH-t"][a][0][sl] = sig_next[sl] * s * qt
             out["GARCH-t"][a][1][sl] = sig_next[sl] * s * es_t
             out["HS"][a][0][sl], out["HS"][a][1][sl] = hs[a][0][sl], hs[a][1][sl]
@@ -115,6 +128,7 @@ def forecasts(d, cfg, bounds):
 
 
 # ---------------------------------------------------------------- backtests
+
 
 def kupiec(hits, alpha):
     n, x = len(hits), hits.sum()
