@@ -1,4 +1,4 @@
-"""Reproduces every table in the paper: `python -m sq.experiments [--quick]`.
+"""Reproduces every table in the paper: `python -m analogue_risk.experiments [--quick]`.
 
 Protocol (fixed before any out-of-sample evaluation):
   * each series is split into a calibration period (first 30%, at least warmup + 500 bars) and an
@@ -407,7 +407,7 @@ SPEED_SNIPPET = """
 import sys, time, json; sys.path.insert(0, {py!r})
 import numpy as np
 from dataclasses import replace
-from sq import data, model as M, vol as V
+from analogue_risk import data, model as M, vol as V
 df = data.binance("BTCUSDT", "15m")
 out = []
 for n in {sizes}:

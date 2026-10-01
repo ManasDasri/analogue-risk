@@ -1,4 +1,4 @@
-"""Paper figures: `python -m sq.figures`. Writes PDF + PNG to results/figures/."""
+"""Paper figures: `python -m analogue_risk.figures`. Writes PDF + PNG to results/figures/."""
 import warnings
 
 import matplotlib

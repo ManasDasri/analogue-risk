@@ -9,8 +9,8 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-from sq import _core as core  # noqa: E402
-from sq import model as M, stats as S, vol as V  # noqa: E402
+from analogue_risk import _core as core  # noqa: E402
+from analogue_risk import model as M, stats as S, vol as V  # noqa: E402
 
 
 def synthetic(n=6000, seed=0, drift_block=0, vol_regimes=True):
@@ -165,7 +165,7 @@ def test_neighbours_reproduce_forecast_means():
 
 
 def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
-    from sq import data as D
+    from analogue_risk import data as D
     df = synthetic(300)
     pinned = D._clean(df.iloc[:250])
     monkeypatch.setattr(D, "DATA", tmp_path)
@@ -182,7 +182,7 @@ def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
 
 
 def test_klines_timestamps_ms_and_us():
-    from sq import data as D
+    from analogue_risk import data as D
     rows = [[1551398400000, "1", "2", "0.5", "1.5", "10"],          # 2019, milliseconds
             [1740787200000000, "1", "2", "0.5", "1.5", "10"]]       # 2025, microseconds (archive)
     df = D._klines_frame(rows)
@@ -191,7 +191,7 @@ def test_klines_timestamps_ms_and_us():
 
 def test_binance_falls_back_to_archive_when_geo_blocked(tmp_path, monkeypatch):
     import urllib.error
-    from sq import data as D
+    from analogue_risk import data as D
     monkeypatch.setattr(D, "DATA", tmp_path)
 
     def blocked(*a):
@@ -219,7 +219,7 @@ def _as_tradingview_csv(trades, path, tz):
 
 
 def test_pine_parity_harness_self_consistent(tmp_path):
-    from sq import pine_parity as P
+    from analogue_risk import pine_parity as P
     ours = P.port_trades(M.Market(synthetic(6000)))
     assert len(ours) > 10
     _as_tradingview_csv(ours, tmp_path / "tv.csv", "Asia/Kolkata")
@@ -233,7 +233,7 @@ TV_EXPORT = Path(__file__).parent / "data" / "tradingview_btcusdt_1h.csv"
 
 @pytest.mark.skipif(not TV_EXPORT.exists(), reason="export the original strategy's trade list from TradingView")
 def test_pine_port_matches_tradingview():
-    from sq import data as D, pine_parity as P
+    from analogue_risk import data as D, pine_parity as P
     report, _ = P.compare(P.read_tradingview(TV_EXPORT, "UTC"), P.port_trades(M.Market(D.binance("BTCUSDT", "1h"))))
     assert report["match rate (of TradingView)"] >= 0.95
 

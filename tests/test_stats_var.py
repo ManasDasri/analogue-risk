@@ -10,7 +10,7 @@ from scipy import stats as st
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
-from sq import hypotheses as Hy, stats as S, var as R  # noqa: E402
+from analogue_risk import hypotheses as Hy, stats as S, var as R  # noqa: E402
 
 
 # ---------------------------------------------------------------- VaR / ES backtests
@@ -108,7 +108,7 @@ def test_hypotheses_reproduce_committed_tables(res, tmp_path):
 # ---------------------------------------------------------------- overlay
 
 def test_overlay_weights_returns_and_costs():
-    from sq import model as M, vol as V
+    from analogue_risk import model as M, vol as V
     from test_core import synthetic
     d = V.VolData(M.Market(synthetic(12000)), replace_cfg())
     a = 10000
@@ -126,12 +126,12 @@ def test_overlay_weights_returns_and_costs():
 
 def replace_cfg():
     from dataclasses import replace
-    from sq import vol as V
+    from analogue_risk import vol as V
     return replace(V.HOURLY, min_hist=4000, regime_len=300, k=10)
 
 
 def test_rust_tail_quantiles_match_numpy():
-    from sq import _core as core
+    from analogue_risk import _core as core
     rng = np.random.default_rng(5)
     z = rng.standard_t(4, 3000)
     z[[100, 2000]] = np.nan

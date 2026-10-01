@@ -41,6 +41,10 @@ Also: the original "low-pass filter" (timeframe) claim gets only weak, non-signi
 (`e6_timeframe`); the analogue engine runs at ~30k bars/s with capped history and 200k bars in
 ~90 s with the full O(n²) search on 10 cores (`e7_speed`).
 
+> **Package name.** The Python package is `analogue_risk` (it was `sq` up to the pre-registration;
+> `PREREGISTRATION.md` and `results/confirmatory/DEVIATIONS.md` keep the original commands, e.g.
+> `python -m sq.experiments`, which today is `python -m analogue_risk.experiments`).
+
 ## Method
 
 **Analogue engine** (`src/analog.rs`). For every bar, a causal embedding is compared with all past
@@ -79,7 +83,7 @@ original). **Overlay**: long-only, no leverage, 5 bp per unit turnover, 0.1 reba
 
 The main study uses Yahoo's unadjusted prices. For the four distribution-paying funds (QQQ, TLT,
 IWM, EEM; Yahoo's price indices have no adjusted series)
-`python -m sq.experiments --universe adjusted_etfs --only e2 e5` reruns the volatility and overlay
+`python -m analogue_risk.experiments --universe adjusted_etfs --only e2 e5` reruns the volatility and overlay
 experiments on dividend-adjusted prices ([`results/adjusted_etfs/comparison.md`](results/adjusted_etfs/comparison.md)).
 Volatility results barely move (QLIKE ratios change by at most 0.026). Sharpe ratio levels rise
 for both buy-and-hold and volatility targeting, most for Treasuries (+0.20, coupons), but every
@@ -114,7 +118,7 @@ archive contains a misaligned window during a February 2018 outage and a few bar
 exchange maintenance), so an archive-built series fails the snapshot check below and results can
 differ marginally from the paper; the loader warns when this happens.
 
-**Pinned snapshot.** `python/sq/data_manifest.json` records, for every series in the paper, the
+**Pinned snapshot.** `python/analogue_risk/data_manifest.json` records, for every series in the paper, the
 last bar used, the row count and a SHA-256 of the cleaned data. Loaders truncate to that bar and
 verify the hash, so re-running the experiments later reproduces the published numbers; if a
 source has revised its history, a warning says so.
@@ -132,12 +136,12 @@ genuine events such as 2020-03-12.
 git clone https://github.com/ManasDasri/analogue-risk && cd analogue-risk
 curl https://sh.rustup.rs -sSf | sh             # Rust toolchain
 uv venv --python 3.12 && uv pip install maturin numpy pandas scipy matplotlib tabulate pytest
-.venv/bin/maturin develop --release              # builds the Rust core into sq._core
+.venv/bin/maturin develop --release              # builds the Rust core into analogue_risk._core
 .venv/bin/python -m pytest tests                 # 15 correctness tests
-.venv/bin/python -m sq.experiments               # development tables -> results/  (~35 min on an M4)
-.venv/bin/python -m sq.experiments --universe confirmatory --only e1 e2 e3 e4 e5 e8
-.venv/bin/python -m sq.hypotheses results/confirmatory   # pre-registered tests
-.venv/bin/python -m sq.figures                   # figures  -> results/figures/
+.venv/bin/python -m analogue_risk.experiments               # development tables -> results/  (~35 min on an M4)
+.venv/bin/python -m analogue_risk.experiments --universe confirmatory --only e1 e2 e3 e4 e5 e8
+.venv/bin/python -m analogue_risk.hypotheses results/confirmatory   # pre-registered tests
+.venv/bin/python -m analogue_risk.figures                   # figures  -> results/figures/
 .venv/bin/python paper/make_tables.py            # LaTeX tables for the manuscripts
 cd paper/research && tectonic main.tex           # or any LaTeX engine; also paper/softwarex
 ```
@@ -154,7 +158,7 @@ the chart timezone to UTC, open *Strategy Tester -> List of Trades*, export the 
 `tests/data/tradingview_btcusdt_1h.csv`, and run
 
 ```bash
-.venv/bin/python -m sq.pine_parity tests/data/tradingview_btcusdt_1h.csv   # report
+.venv/bin/python -m analogue_risk.pine_parity tests/data/tradingview_btcusdt_1h.csv   # report
 .venv/bin/python -m pytest tests -k tradingview                            # >= 95% of trades must match
 ```
 
@@ -163,7 +167,7 @@ the chart timezone to UTC, open *Strategy Tester -> List of Trades*, export the 
 ```
 src/            Rust core: analog.rs (engine), backtest.rs (simulator), hawkes.rs, garch.rs,
                 features.rs, legacy.rs (bar-for-bar port of the Pine v1 strategy), lib.rs (PyO3)
-python/sq/      data.py, model.py (direction + v1 + gates), vol.py (risk models, overlay),
+python/analogue_risk/      data.py, model.py (direction + v1 + gates), vol.py (risk models, overlay),
                 var.py (VaR/ES), stats.py, experiments.py, hypotheses.py, figures.py
 paper/          research/ (journal manuscript), softwarex/ (software paper), refs.bib,
                 make_tables.py (every table generated from results/*.csv)

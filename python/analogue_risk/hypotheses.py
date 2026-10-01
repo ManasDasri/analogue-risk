@@ -1,4 +1,4 @@
-"""Pre-registered confirmatory tests (see PREREGISTRATION.md): `python -m sq.hypotheses [results_dir]`.
+"""Pre-registered confirmatory tests (see PREREGISTRATION.md): `python -m analogue_risk.hypotheses [results_dir]`.
 
 Unit of analysis: one series (asset x horizon for volatility and tails; asset x alpha for VaR;
 asset for direction and the overlay). Cross-series tests are two-sided Wilcoxon signed-rank tests
