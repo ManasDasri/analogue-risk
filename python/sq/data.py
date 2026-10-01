@@ -137,7 +137,11 @@ def _binance_archive(symbol, interval, start):
     return _klines_frame(rows)
 
 
-def yahoo(symbol, start="1990-01-01"):
+def yahoo(symbol, start="1990-01-01", adjusted=False):
+    """Yahoo daily bars. adjusted=True rescales open/high/low/close by adjclose/close so returns
+    include distributions (dividends); it only matters for funds, since Yahoo's price indices have
+    no adjusted series. Note: Yahoo rescales all past adjusted prices after every new dividend,
+    so an adjusted snapshot is less stable than an unadjusted one."""
     def fetch():
         p1 = int(pd.Timestamp(start).timestamp())
         p2 = int(time.time())
@@ -145,9 +149,13 @@ def yahoo(symbol, start="1990-01-01"):
                  f"?period1={p1}&period2={p2}&interval=1d")["chart"]["result"][0]
         q = j["indicators"]["quote"][0]
         df = pd.DataFrame({k: q[k] for k in COLS}, index=pd.to_datetime(j["timestamp"], unit="s"))
+        if adjusted:
+            f = pd.Series(j["indicators"]["adjclose"][0]["adjclose"], index=df.index, dtype=float) / df.close
+            df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]].mul(f, axis=0)
         return df
 
-    return drop_bad_ticks(_cached(f"yahoo_{symbol.replace('^', '').replace('=', '')}_1d", fetch))
+    name = f"yahoo_{symbol.replace('^', '').replace('=', '')}_1d" + ("_adj" if adjusted else "")
+    return drop_bad_ticks(_cached(name, fetch))
 
 
 def drop_bad_ticks(df, k=8.0, reversal=0.7, window=20):

@@ -75,6 +75,17 @@ Sharpe differences.
 stop-first on ambiguous bars, gaps fill at the open, 5 bp per side (1 bp shown for v1 as in the
 original). **Overlay**: long-only, no leverage, 5 bp per unit turnover, 0.1 rebalance band.
 
+## Robustness: dividend-adjusted prices
+
+The main study uses Yahoo's unadjusted prices. For the four distribution-paying funds (QQQ, TLT,
+IWM, EEM; Yahoo's price indices have no adjusted series)
+`python -m sq.experiments --universe adjusted_etfs --only e2 e5` reruns the volatility and overlay
+experiments on dividend-adjusted prices ([`results/adjusted_etfs/comparison.md`](results/adjusted_etfs/comparison.md)).
+Volatility results barely move (QLIKE ratios change by at most 0.026). Sharpe ratio levels rise
+for both buy-and-hold and volatility targeting, most for Treasuries (+0.20, coupons), but every
+comparison keeps its sign: volatility targeting still cuts drawdowns, lowers Sharpe slightly for
+TLT, IWM and EEM, and raises it for QQQ.
+
 ## Recommended settings for new work
 
 The paper's results use the pre-registered kNN analogue (`vol.HOURLY`, `vol.DAILY_W`,

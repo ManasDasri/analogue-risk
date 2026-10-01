@@ -39,6 +39,10 @@ UNIVERSES = {
         daily={"DAX": "^GDAXI", "Nikkei 225": "^N225", "FTSE 100": "^FTSE", "Hang Seng": "^HSI",
                "Russell 2000": "IWM", "Emerging mkts": "EEM", "Silver": "SLV", "Oil": "USO",
                "GBP/USD": "GBPUSD=X", "USD/JPY": "JPY=X"}),
+    # robustness: the distribution-paying funds above, with dividend-adjusted prices
+    "adjusted_etfs": dict(
+        hourly={}, daily={"Nasdaq-100": "QQQ", "Treasuries": "TLT", "Russell 2000": "IWM", "Emerging mkts": "EEM"},
+        adjusted=True),
 }
 MIN_BARS = {True: 20000, False: 3000}  # pre-registered exclusion rule (after cleaning)
 
@@ -48,7 +52,8 @@ def load(universe="development", quick=False):
     u = UNIVERSES[universe]
     out = {k: (data.binance(v, "1h"), True) for k, v in u["hourly"].items()}
     for k, v in u["daily"].items():
-        out[k] = (data.yahoo(v, start="1927-12-30" if v == "^GSPC" else "1950-01-01"), False)
+        out[k] = (data.yahoo(v, start="1927-12-30" if v == "^GSPC" else "1950-01-01",
+                             adjusted=u.get("adjusted", False)), False)
     for k, (df, hourly) in list(out.items()):
         if len(df) < MIN_BARS[hourly]:
             print(f"  excluded {k}: {len(df)} bars < {MIN_BARS[hourly]}", flush=True)
@@ -294,6 +299,39 @@ def e8_var(sets, B):
             "p < 0.05 reject correct coverage; FZ0 is the Fissler-Ziegel joint loss (lower is better).")
 
 
+# ---------------------------------------------------------------- robustness: adjusted prices
+
+def compare_adjusted():
+    """Side-by-side volatility and overlay results for unadjusted vs dividend-adjusted funds."""
+    adj = ROOT / "adjusted_etfs"
+    names = list(UNIVERSES["adjusted_etfs"]["daily"])
+    base = {k: pd.concat([pd.read_csv(ROOT / f"{k}.csv"), pd.read_csv(ROOT / "confirmatory" / f"{k}.csv")])
+            for k in ("e2_volatility", "e5_overlay")}
+    new = {k: pd.read_csv(adj / f"{k}.csv") for k in base}
+    rows = []
+    for k_series in sorted(new["e2_volatility"].series.unique()):
+        if k_series.split(" (")[0] not in names:
+            continue
+        for model in ("HAR", "Analogue", "Analogue+HAR"):
+            pick = lambda df: df[(df.series == k_series) & (df.model == model)].iloc[0]
+            b, a = pick(base["e2_volatility"]), pick(new["e2_volatility"])
+            rows.append({"series": k_series, "result": f"QLIKE / HAR: {model}", "unadjusted": b["QLIKE / HAR"],
+                         "adjusted": a["QLIKE / HAR"]})
+    for name in names:
+        for strat in ("Buy & hold", "Vol target: Analogue+HAR"):
+            pick = lambda df: df[(df.series == name) & (df.strategy == strat)].iloc[0]
+            b, a = pick(base["e5_overlay"]), pick(new["e5_overlay"])
+            for col in ("Sharpe", "max DD"):
+                rows.append({"series": name, "result": f"{strat}: {col}", "unadjusted": b[col], "adjusted": a[col]})
+    t = pd.DataFrame(rows)
+    t["change"] = t.adjusted - t.unadjusted
+    global RES
+    RES = adj
+    md(t.set_index(["series", "result"]), adj / "comparison",
+       note="Robustness: distribution-paying funds with dividend-adjusted vs unadjusted prices "
+            "(Yahoo price indices have no adjusted series and are unaffected).")
+
+
 # ---------------------------------------------------------------- E6: timeframe claim, E7: speed
 
 def e6_timeframe():
@@ -382,6 +420,8 @@ def main():
             e5_overlay(series, forecasts, B)
     if want("e8"):
         e8_var(sets, B)
+    if a.universe == "adjusted_etfs" and want("e5"):
+        compare_adjusted()
     if want("e6") and not a.quick and a.universe == "development":
         e6_timeframe()
     if want("e7") and not a.quick and a.universe == "development":
