@@ -1,0 +1,18 @@
+\begin{abstract}
+Analogue (nearest-neighbour) forecasting is popular in trading because each forecast is backed by
+concrete historical episodes, but it is easy to evaluate wrongly. We build a leakage-safe analogue
+engine---with an exclusion zone that keeps analogue outcomes independent, a Markov mixture over
+volatility regimes and labels produced by the same trade simulator that executes the
+strategy---and ask where analogue information is predictive. After a development study on nine
+assets, we pre-registered eight hypotheses and tested them on fifteen new cryptocurrencies, equity
+indices, commodities and currencies. All eight replicated. Analogues carry no information about the
+direction of prices: information coefficients are within $\pm0.06$ and no strategy survives a
+deflated-Sharpe test. They are informative about risk: combined with HAR they are statistically
+indistinguishable from HAR and stay in the model confidence set for 23 of 25 confirmatory series,
+while gradient-boosted trees given the same inputs are markedly worse; kernel weighting improves the analogue
+forecaster by 5\%; analogue-conditioned Value-at-Risk is as well calibrated as filtered historical
+simulation; and volatility-managed exposure reduced the maximum drawdown for all 24 assets without
+raising Sharpe ratios. A static Poisson crash gate of the kind used in trading software is worse
+than a constant forecast in 31 of 40 series, and a Hawkes process improves on it but not on a logistic model of
+current volatility. Code, data scripts and the pre-registration are public.
+\end{abstract}
