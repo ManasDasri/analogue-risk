@@ -86,6 +86,16 @@ for both buy-and-hold and volatility targeting, most for Treasuries (+0.20, coup
 comparison keeps its sign: volatility targeting still cuts drawdowns, lowers Sharpe slightly for
 TLT, IWM and EEM, and raises it for QQQ.
 
+## Robustness: bootstrap block lengths
+
+The model confidence sets and Sharpe tests use fixed bootstrap block lengths (2h; 10 days for
+VaR). `--auto-block` replaces them with Politis-White (2004) estimates
+([`results/block_length_comparison.md`](results/block_length_comparison.md)). No headline claim
+moves: Analogue+HAR stays in the 90% MCS for 14/15 development and 23/25 confirmatory series, HAR
+for 14/15 and 24/25. The automatic lengths are slightly more conservative, admitting a few more
+models to some confidence sets (confirmatory: analogue alone 12 -> 14, GARCH 20 -> 22); 13 of 432
+VaR/ES MCS verdicts and 3 of 168 overlay Sharpe-test verdicts change.
+
 ## Recommended settings for new work
 
 The paper's results use the pre-registered kNN analogue (`vol.HOURLY`, `vol.DAILY_W`,

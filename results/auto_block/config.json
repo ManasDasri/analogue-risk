@@ -1,0 +1,91 @@
+{
+ "hourly": {
+  "h": 24,
+  "m": 4,
+  "long_halflife": 500,
+  "lookback": 1000000000,
+  "bandwidth": 0.0,
+  "kernel_block": false,
+  "min_hist": 8760,
+  "k": 20,
+  "k_min": 5,
+  "excl": null,
+  "regime": true,
+  "regime_len": 1000,
+  "har": [
+   1,
+   24,
+   168
+  ],
+  "jump_c": 3.0,
+  "gate_q": 0.9
+ },
+ "daily_w": {
+  "h": 5,
+  "m": 4,
+  "long_halflife": 250,
+  "lookback": 1000000000,
+  "bandwidth": 0.0,
+  "kernel_block": false,
+  "min_hist": 1000,
+  "k": 20,
+  "k_min": 5,
+  "excl": null,
+  "regime": true,
+  "regime_len": 500,
+  "har": [
+   1,
+   5,
+   22
+  ],
+  "jump_c": 3.0,
+  "gate_q": 0.9
+ },
+ "daily_m": {
+  "h": 22,
+  "m": 4,
+  "long_halflife": 250,
+  "lookback": 1000000000,
+  "bandwidth": 0.0,
+  "kernel_block": false,
+  "min_hist": 2000,
+  "k": 10,
+  "k_min": 5,
+  "excl": null,
+  "regime": true,
+  "regime_len": 500,
+  "har": [
+   1,
+   5,
+   22
+  ],
+  "jump_c": 3.0,
+  "gate_q": 0.9
+ },
+ "direction": {
+  "w": 20,
+  "m": 4,
+  "normalize": true,
+  "lookback": 1000000000,
+  "min_hist": 4000,
+  "k": 20,
+  "k_min": 5,
+  "excl": 20,
+  "regime": true,
+  "regime_len": 1000,
+  "vol_halflife": 50,
+  "h": 20,
+  "sl_mult": 2.5,
+  "rr": 1.5,
+  "z": 1.0,
+  "gate": "hawkes",
+  "jump_c": 2.5,
+  "gate_q": 0.9,
+  "sizing": "kelly",
+  "kelly_frac": 0.5,
+  "max_risk": 0.02,
+  "fixed_risk": 0.01,
+  "lev_cap": 1.0,
+  "cost_bps": 5.0
+ }
+}
