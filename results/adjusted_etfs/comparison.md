@@ -1,0 +1,44 @@
+Robustness: distribution-paying funds with dividend-adjusted vs unadjusted prices (Yahoo price indices have no adjusted series and are unaffected).
+
+|                                                       |   unadjusted |   adjusted |   change |
+|:------------------------------------------------------|-------------:|-----------:|---------:|
+| ('Emerging mkts (h=22)', 'QLIKE / HAR: HAR')          |        1.000 |      1.000 |    0.000 |
+| ('Emerging mkts (h=22)', 'QLIKE / HAR: Analogue')     |        1.167 |      1.172 |    0.005 |
+| ('Emerging mkts (h=22)', 'QLIKE / HAR: Analogue+HAR') |        1.033 |      1.033 |   -0.000 |
+| ('Emerging mkts (h=5)', 'QLIKE / HAR: HAR')           |        1.000 |      1.000 |    0.000 |
+| ('Emerging mkts (h=5)', 'QLIKE / HAR: Analogue')      |        1.098 |      1.088 |   -0.010 |
+| ('Emerging mkts (h=5)', 'QLIKE / HAR: Analogue+HAR')  |        1.012 |      1.007 |   -0.005 |
+| ('Nasdaq-100 (h=22)', 'QLIKE / HAR: HAR')             |        1.000 |      1.000 |    0.000 |
+| ('Nasdaq-100 (h=22)', 'QLIKE / HAR: Analogue')        |        1.434 |      1.419 |   -0.016 |
+| ('Nasdaq-100 (h=22)', 'QLIKE / HAR: Analogue+HAR')    |        1.122 |      1.117 |   -0.005 |
+| ('Nasdaq-100 (h=5)', 'QLIKE / HAR: HAR')              |        1.000 |      1.000 |    0.000 |
+| ('Nasdaq-100 (h=5)', 'QLIKE / HAR: Analogue')         |        1.084 |      1.072 |   -0.011 |
+| ('Nasdaq-100 (h=5)', 'QLIKE / HAR: Analogue+HAR')     |        1.018 |      1.012 |   -0.006 |
+| ('Russell 2000 (h=22)', 'QLIKE / HAR: HAR')           |        1.000 |      1.000 |    0.000 |
+| ('Russell 2000 (h=22)', 'QLIKE / HAR: Analogue')      |        1.634 |      1.608 |   -0.026 |
+| ('Russell 2000 (h=22)', 'QLIKE / HAR: Analogue+HAR')  |        1.172 |      1.162 |   -0.010 |
+| ('Russell 2000 (h=5)', 'QLIKE / HAR: HAR')            |        1.000 |      1.000 |    0.000 |
+| ('Russell 2000 (h=5)', 'QLIKE / HAR: Analogue')       |        1.107 |      1.098 |   -0.008 |
+| ('Russell 2000 (h=5)', 'QLIKE / HAR: Analogue+HAR')   |        1.010 |      1.006 |   -0.004 |
+| ('Treasuries (h=22)', 'QLIKE / HAR: HAR')             |        1.000 |      1.000 |    0.000 |
+| ('Treasuries (h=22)', 'QLIKE / HAR: Analogue')        |        1.190 |      1.201 |    0.010 |
+| ('Treasuries (h=22)', 'QLIKE / HAR: Analogue+HAR')    |        1.019 |      1.026 |    0.007 |
+| ('Treasuries (h=5)', 'QLIKE / HAR: HAR')              |        1.000 |      1.000 |    0.000 |
+| ('Treasuries (h=5)', 'QLIKE / HAR: Analogue')         |        1.133 |      1.134 |    0.001 |
+| ('Treasuries (h=5)', 'QLIKE / HAR: Analogue+HAR')     |        1.012 |      1.010 |   -0.002 |
+| ('Nasdaq-100', 'Buy & hold: Sharpe')                  |        0.749 |      0.785 |    0.036 |
+| ('Nasdaq-100', 'Buy & hold: max DD')                  |       -0.536 |     -0.534 |    0.001 |
+| ('Nasdaq-100', 'Vol target: Analogue+HAR: Sharpe')    |        0.839 |      0.882 |    0.043 |
+| ('Nasdaq-100', 'Vol target: Analogue+HAR: max DD')    |       -0.416 |     -0.409 |    0.007 |
+| ('Treasuries', 'Buy & hold: Sharpe')                  |       -0.001 |      0.198 |    0.198 |
+| ('Treasuries', 'Buy & hold: max DD')                  |       -0.542 |     -0.484 |    0.058 |
+| ('Treasuries', 'Vol target: Analogue+HAR: Sharpe')    |       -0.045 |      0.179 |    0.224 |
+| ('Treasuries', 'Vol target: Analogue+HAR: max DD')    |       -0.538 |     -0.446 |    0.092 |
+| ('Russell 2000', 'Buy & hold: Sharpe')                |        0.426 |      0.481 |    0.055 |
+| ('Russell 2000', 'Buy & hold: max DD')                |       -0.549 |     -0.543 |    0.006 |
+| ('Russell 2000', 'Vol target: Analogue+HAR: Sharpe')  |        0.389 |      0.480 |    0.090 |
+| ('Russell 2000', 'Vol target: Analogue+HAR: max DD')  |       -0.375 |     -0.352 |    0.023 |
+| ('Emerging mkts', 'Buy & hold: Sharpe')               |        0.235 |      0.332 |    0.098 |
+| ('Emerging mkts', 'Buy & hold: max DD')               |       -0.437 |     -0.398 |    0.039 |
+| ('Emerging mkts', 'Vol target: Analogue+HAR: Sharpe') |        0.228 |      0.325 |    0.098 |
+| ('Emerging mkts', 'Vol target: Analogue+HAR: max DD') |       -0.437 |     -0.393 |    0.045 |

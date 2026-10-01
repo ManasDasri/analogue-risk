@@ -123,5 +123,25 @@
   "end": "2026-09-29T13:30:00",
   "rows": 5150,
   "sha256": "aa40b6794f2e04b291ea9343f5aa5558d1e75918f0ab77183ff2db8bcbf6a287"
+ },
+ "yahoo_QQQ_1d_adj": {
+  "end": "2026-09-28T13:30:00",
+  "rows": 6931,
+  "sha256": "d24ab15a2e4eb2227aea46726c77129e881e2e46c647272afde3a06e90f950d3"
+ },
+ "yahoo_TLT_1d_adj": {
+  "end": "2026-09-28T13:30:00",
+  "rows": 6080,
+  "sha256": "081547ca313aa6e96736d88d3e14b198b70f6d85a90b7c5ea7ee38d4274b888c"
+ },
+ "yahoo_IWM_1d_adj": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 6624,
+  "sha256": "32a438cf668709fa9c3ef2075a2fba56284b2c20b8ea491944b2d61454885f8c"
+ },
+ "yahoo_EEM_1d_adj": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 5903,
+  "sha256": "82ad9adf852bcfc6d6679a89e92bb922d3687959b9118a6d1afbde30e61d7733"
  }
 }
