@@ -25,6 +25,15 @@ from . import _core as core, data, model as M, stats as S, var as R, vol as V
 
 ROOT = Path(__file__).resolve().parents[2] / "results"
 RES = ROOT  # set by main(): results/ for development, results/confirmatory/ for the pre-registered run
+AUTO_BLOCK = False  # --auto-block: Politis-White block lengths instead of the fixed defaults
+
+
+def block_len(default, *series):
+    """Bootstrap mean block length: the fixed default, or with --auto-block the mean Politis-White
+    estimate over the given series (loss differentials or return differences)."""
+    if not AUTO_BLOCK:
+        return default
+    return max(1, int(round(np.mean([S.politis_white_block(x) for x in series]))))
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 UNIVERSES = {
@@ -156,7 +165,8 @@ def e2_volatility(series, B):
             ok &= np.isfinite(f)
         q = {k: V.qlike(d.realised[ok], f[ok]) for k, f in F.items()}
         mse = {k: (d.target[ok] - f[ok]) ** 2 for k, f in F.items()}
-        lag, block = d.vc.h, 2 * d.vc.h
+        avg = np.mean(list(q.values()), axis=0)
+        lag, block = d.vc.h, block_len(2 * d.vc.h, *[v - avg for v in q.values()])
         mcs = S.model_confidence_set(q, B=B, block=block)
         for k in F:
             rows.append({"series": label, "model": k, "QLIKE": q[k].mean(), "QLIKE / HAR": q[k].mean() / q["HAR"].mean(),
@@ -240,8 +250,8 @@ def e5_overlay(series, forecasts, B):
             strategies[f"Vol target: {k}"] = V.overlay(d, F[k], cal)
         strategies["Kelly (1/var): Analogue+HAR"] = V.overlay(d, F["Analogue+HAR"], cal, kind="kelly")
         strategies["Vol target: Analogue+HAR + Hawkes gate"] = V.overlay(d, F["Analogue+HAR"], cal, gate=gate)
-        block = 2 * d.vc.h
         for k, (r, w) in strategies.items():
+            block = block_len(2 * d.vc.h, r[oos] - bh[oos])
             s = S.summary(r[oos], d.mkt.ppy, w[oos])
             diff, p, _ = S.sharpe_diff_test(r[oos], bh[oos], d.mkt.ppy, B=B, block=block) if k != "Buy & hold" else (np.nan, np.nan, None)
             rows.append({"series": label.split(" (")[0], "strategy": k, "Sharpe": s["sharpe"], "ΔSharpe vs B&H": diff,
@@ -289,7 +299,8 @@ def e8_var(sets, B):
                              "hit rate / alpha": hits.mean() / a, "Kupiec p": R.kupiec(hits, a)[1],
                              "Christoffersen CC p": p_cc, "tick loss": R.tick_loss(y[ok], v, a).mean(),
                              "FZ0": losses[m_].mean()})
-            mcs = S.model_confidence_set(losses, B=B, block=10)
+            avg = np.mean(list(losses.values()), axis=0)
+            mcs = S.model_confidence_set(losses, B=B, block=block_len(10, *[v - avg for v in losses.values()]))
             for m_ in losses:
                 mcs_rows.append({"series": name, "alpha": a, "model": m_, "MCS p (FZ0)": mcs[m_]})
         print(f"  E8 {name} done", flush=True)
@@ -330,6 +341,38 @@ def compare_adjusted():
     md(t.set_index(["series", "result"]), adj / "comparison",
        note="Robustness: distribution-paying funds with dividend-adjusted vs unadjusted prices "
             "(Yahoo price indices have no adjusted series and are unaffected).")
+
+
+# ---------------------------------------------------------------- robustness: block lengths
+
+def compare_blocks():
+    """How many model-confidence-set memberships and Sharpe-test conclusions change when the fixed
+    block lengths are replaced by Politis-White estimates."""
+    rows = []
+    for label, base in (("Development", ROOT), ("Confirmatory", ROOT / "confirmatory")):
+        auto = base / "auto_block"
+        if not auto.exists():
+            continue
+        for name, key, col, cut in (("Volatility MCS (e2)", ["series", "model"], "MCS p (QLIKE)", 0.10),
+                                    ("VaR/ES MCS (e8)", ["series", "alpha", "model"], "MCS p (FZ0)", 0.10),
+                                    ("Overlay Sharpe test (e5)", ["series", "strategy"], "p", 0.05)):
+            f = {"e2": "e2_volatility", "e8": "e8_var", "e5": "e5_overlay"}[name.split("(")[1][:2]]
+            m = pd.read_csv(base / f"{f}.csv").merge(pd.read_csv(auto / f"{f}.csv"), on=key, suffixes=("", "_auto"))
+            m = m[m[col].notna() & m[col + "_auto"].notna()]
+            if "MCS" in name:
+                fixed, pw = m[col] >= cut, m[col + "_auto"] >= cut
+                verdict = "in 90% MCS"
+            else:
+                fixed, pw = m[col] < cut, m[col + "_auto"] < cut
+                verdict = "significant at 5%"
+            rows.append({"set": label, "test": name, "cases": len(m), f"{verdict}: fixed blocks": int(fixed.sum()),
+                         f"{verdict}: Politis-White": int(pw.sum()), "verdicts changed": int((fixed != pw).sum())})
+    t = pd.DataFrame(rows)
+    global RES
+    RES = ROOT
+    md(t.set_index(["set", "test"]), ROOT / "block_length_comparison",
+       note="Robustness: fixed bootstrap block lengths (2h for volatility and overlay, 10 days for VaR) "
+            "vs Politis-White (2004) automatic block lengths.")
 
 
 # ---------------------------------------------------------------- E6: timeframe claim, E7: speed
@@ -396,9 +439,13 @@ def main():
     ap.add_argument("--quick", action="store_true", help="two series, fewer bootstrap draws")
     ap.add_argument("--only", nargs="*", default=None, help="subset of e1..e8")
     ap.add_argument("--universe", default="development", choices=list(UNIVERSES))
+    ap.add_argument("--auto-block", action="store_true", help="Politis-White bootstrap block lengths")
     a = ap.parse_args()
-    global RES
+    global RES, AUTO_BLOCK
     RES = ROOT if a.universe == "development" else ROOT / a.universe
+    if a.auto_block:
+        AUTO_BLOCK = True
+        RES = RES / "auto_block"
     RES.mkdir(parents=True, exist_ok=True)
     B = 200 if a.quick else 1000
     want = lambda e: a.only is None or e in a.only

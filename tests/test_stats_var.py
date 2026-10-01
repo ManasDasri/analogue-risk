@@ -147,3 +147,17 @@ def test_rust_tail_quantiles_match_numpy():
             win = np.nan_to_num(z)[t - 249:t + 1]
             assert qr[t] == np.quantile(win, a)
             assert er[t] == pytest.approx(win[win <= qr[t]].mean(), rel=1e-12)
+
+
+def test_politis_white_block_length_matches_ar1_theory():
+    rng = np.random.default_rng(6)
+    assert S.politis_white_block(rng.standard_normal(5000)) == 1.0
+    n, phi = 20000, 0.5
+    est = []
+    for _ in range(5):
+        x, e = np.zeros(n), rng.standard_normal(n)
+        for t in range(1, n):
+            x[t] = phi * x[t - 1] + e[t]
+        est.append(S.politis_white_block(x))
+    theory = (2 * phi / (1 - phi ** 2)) ** (2 / 3) * n ** (1 / 3)   # 32.9
+    assert abs(np.median(est) / theory - 1) < 0.15

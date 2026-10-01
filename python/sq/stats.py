@@ -16,6 +16,33 @@ def stationary_indices(T, B, block, rng):
     return (first + t - gstart) % T
 
 
+def politis_white_block(x):
+    """Optimal mean block length for the stationary bootstrap (Politis & White 2004, with the
+    correction of Patton, Politis & White 2009), using the flat-top lag window."""
+    x = np.asarray(x, float)
+    x = x[np.isfinite(x)] - np.nanmean(x)
+    n = len(x)
+    kn = max(5, int(np.ceil(np.log10(n))))
+    mmax = int(np.ceil(np.sqrt(n))) + kn
+    bmax = np.ceil(min(3 * np.sqrt(n), n / 3))
+    acov = np.array([x[: n - k] @ x[k:] / n for k in range(mmax + 1)])
+    rho = acov[1:] / acov[0]
+    crit = 2 * np.sqrt(np.log10(n) / n)
+    # smallest m whose next kn autocorrelations (lags m+1..m+kn) are all insignificant
+    M = mmax
+    for m in range(0, mmax - kn + 1):
+        if np.all(np.abs(rho[m: m + kn]) < crit):
+            M = min(2 * max(m, 1), mmax)
+            break
+    k = np.arange(-M, M + 1)
+    lam = np.clip(2 * (1 - np.abs(k) / M), 0, 1)  # flat-top: 1 for |k|/M <= 0.5, linear to 0 at 1
+    r = acov[np.abs(k)]
+    g = np.sum(lam * np.abs(k) * r)
+    d = 2 * np.sum(lam * r) ** 2
+    b = (2 * g ** 2 / d) ** (1 / 3) * n ** (1 / 3) if d > 0 else 1.0
+    return float(min(max(b, 1.0), bmax))
+
+
 def boot_means(X, B=1000, block=20, seed=0, chunk=50):
     """Bootstrap distribution (B x M) of the column means of X (T x M)."""
     rng = np.random.default_rng(seed)
