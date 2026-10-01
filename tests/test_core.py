@@ -203,3 +203,36 @@ def test_binance_falls_back_to_archive_when_geo_blocked(tmp_path, monkeypatch):
     with pytest.warns(UserWarning, match="HTTP 451"):
         out = D.binance("TESTUSDT", "1h")
     assert len(out) == 4  # unpinned series drop the still-forming final bar
+
+
+def _as_tradingview_csv(trades, path, tz):
+    """Write trades the way TradingView's 'List of Trades' export does (exit row first, local time)."""
+    rows = []
+    for i, t in enumerate(trades.itertuples(), 1):
+        side = "long" if t.dir == 1 else "short"
+        loc = lambda ts: ts.tz_localize("UTC").tz_convert(tz).strftime("%Y-%m-%d %H:%M")
+        rows.append({"Trade #": i, "Type": f"Exit {side}", "Signal": "x", "Date/Time": loc(t.exit_time),
+                     "Price USDT": t.exit_px, "Contracts": 1})
+        rows.append({"Trade #": i, "Type": f"Entry {side}", "Signal": "KNN", "Date/Time": loc(t.entry_time),
+                     "Price USDT": t.entry_px, "Contracts": 1})
+    pd.DataFrame(rows).to_csv(path, index=False)
+
+
+def test_pine_parity_harness_self_consistent(tmp_path):
+    from sq import pine_parity as P
+    ours = P.port_trades(M.Market(synthetic(6000)))
+    assert len(ours) > 10
+    _as_tradingview_csv(ours, tmp_path / "tv.csv", "Asia/Kolkata")
+    report, unmatched = P.compare(P.read_tradingview(tmp_path / "tv.csv", "Asia/Kolkata"), ours)
+    assert report["match rate (of TradingView)"] == 1.0 and report["same exit bar"] == 1.0
+    assert len(unmatched) == 0
+
+
+TV_EXPORT = Path(__file__).parent / "data" / "tradingview_btcusdt_1h.csv"
+
+
+@pytest.mark.skipif(not TV_EXPORT.exists(), reason="export the original strategy's trade list from TradingView")
+def test_pine_port_matches_tradingview():
+    from sq import data as D, pine_parity as P
+    report, _ = P.compare(P.read_tradingview(TV_EXPORT, "UTC"), P.port_trades(M.Market(D.binance("BTCUSDT", "1h"))))
+    assert report["match rate (of TradingView)"] >= 0.95

@@ -116,6 +116,18 @@ Tests cover: no look-ahead (forecasts, labels and the v1 port are identical on t
 Hawkes and GARCH likelihoods against brute force, Hawkes parameter recovery, label = executed
 trade, planted-signal recovery vs. random walk, MCS behaviour, and the bootstrap.
 
+## Checking the Pine port against TradingView
+
+The Rust port of the original strategy (`src/legacy.rs`) can be checked against TradingView's own
+backtest. In TradingView, add `codes/script.pine` (default inputs) to `BINANCE:BTCUSDT`, 1h, set
+the chart timezone to UTC, open *Strategy Tester -> List of Trades*, export the CSV, save it as
+`tests/data/tradingview_btcusdt_1h.csv`, and run
+
+```bash
+.venv/bin/python -m sq.pine_parity tests/data/tradingview_btcusdt_1h.csv   # report
+.venv/bin/python -m pytest tests -k tradingview                            # >= 95% of trades must match
+```
+
 ## Layout
 
 ```
