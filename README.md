@@ -18,6 +18,22 @@ The architecture of the original is kept: analogue (k-nearest-neighbour) matchin
 volatility regime, a Poisson-family tail-risk gate, and Kelly-style sizing. Each part was made
 statistically sound, then tested against standard benchmarks.
 
+## Quick start
+
+```python
+from analogue_risk import Analogue, volatility_forecast
+from analogue_risk.data import binance
+
+prices = binance("BTCUSDT", "1h")                    # open/high/low/close DataFrame
+vf = volatility_forecast(prices, horizon=24)         # next-day variance from volatility analogues
+print(vf.tail())
+
+# the general engine: any causal features, any targets
+model = Analogue(horizon=5, k=20)
+F = model.forecast(embedding, targets, state=regime)  # mean/se per target, analogues used
+idx, w = model.neighbours(embedding, targets, state=regime)  # the analogues behind each forecast
+```
+
 ## Results summary
 
 The study was **pre-registered**: after a development study on 9 assets, eight hypotheses, the
