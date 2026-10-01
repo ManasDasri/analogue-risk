@@ -162,3 +162,20 @@ def test_neighbours_reproduce_forecast_means():
     ok = np.isfinite(F[:, 0])
     np.testing.assert_allclose((w * vals).sum(1)[ok], F[ok, 0], rtol=1e-10, atol=1e-12)
     assert np.allclose(w[ok].sum(1), 1.0)
+
+
+def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
+    from sq import data as D
+    df = synthetic(300)
+    pinned = D._clean(df.iloc[:250])
+    monkeypatch.setattr(D, "DATA", tmp_path)
+    monkeypatch.setattr(D, "MANIFEST", {"x": {"end": pinned.index[-1].isoformat(), "rows": len(pinned),
+                                              "sha256": D.digest(pinned)}})
+    df.to_csv(tmp_path / "x.csv.gz")  # the source now has 50 more bars than the snapshot
+    out = D._cached("x", None)
+    assert len(out) == 250 and D.digest(out) == D.digest(pinned)
+    changed = df.copy()
+    changed.iloc[10, changed.columns.get_loc("close")] *= 1.01  # a revised historical bar
+    changed.to_csv(tmp_path / "x.csv.gz")
+    with pytest.warns(UserWarning, match="differs from the pinned snapshot"):
+        D._cached("x", None)

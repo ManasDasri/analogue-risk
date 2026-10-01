@@ -1,0 +1,127 @@
+{
+ "binance_ADAUSDT_1h": {
+  "end": "2026-09-30T16:00:00",
+  "rows": 74037,
+  "sha256": "1e8eda01ba8c8ec7b7da8b4c7d82b9241c7d5695b7f78ec2c9de77a9ee222cdc"
+ },
+ "binance_BNBUSDT_1h": {
+  "end": "2026-09-30T16:00:00",
+  "rows": 76551,
+  "sha256": "22599b5fa03d8cfc85cb061ae9687423123826395211ac936abdd87fa93c459e"
+ },
+ "binance_BTCUSDT_15m": {
+  "end": "2026-09-30T10:15:00",
+  "rows": 306134,
+  "sha256": "9a81f9cd2e680745b035994ebc6180ef1b5c70adc1c5add8d026212c3cda5bbb"
+ },
+ "binance_BTCUSDT_1h": {
+  "end": "2026-09-30T09:00:00",
+  "rows": 76544,
+  "sha256": "8fe5229d11fda27fea765074a51cc1b0500845c856dce107d98fcca01590be40"
+ },
+ "binance_ETHUSDT_1h": {
+  "end": "2026-09-30T09:00:00",
+  "rows": 76544,
+  "sha256": "d1f2c56337e24781d8fd505fbb6f79868bfcf46902b999eb16d613f1d14f1b38"
+ },
+ "binance_LTCUSDT_1h": {
+  "end": "2026-09-30T16:00:00",
+  "rows": 76551,
+  "sha256": "02d51d49bd5307192de8ce3a6c0d9307ccb0e269dc044de472dc2563874778e0"
+ },
+ "binance_PAXGUSDT_1h": {
+  "end": "2026-09-30T09:00:00",
+  "rows": 53354,
+  "sha256": "7e344eefff0d0cd07ee109647b1b10f1a2a34c83d5f8e5a601e545a34f7003ca"
+ },
+ "binance_SOLUSDT_1h": {
+  "end": "2026-09-30T16:00:00",
+  "rows": 53775,
+  "sha256": "8a1c346487f2261d2c2e493a2f0df58cb686c961f0d81249689dec9e85cdf0db"
+ },
+ "binance_XRPUSDT_1h": {
+  "end": "2026-09-30T16:00:00",
+  "rows": 73625,
+  "sha256": "ddc24d75e34e8cab279a8d388341c2e1383f8928e72deeca844a75484a3eba40"
+ },
+ "yahoo_EEM_1d": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 5903,
+  "sha256": "5428bacc04de8db04207e76d172db69b7efd4534bef46e584a2f5434b05ca4fe"
+ },
+ "yahoo_EURUSDX_1d": {
+  "end": "2026-09-28T23:00:00",
+  "rows": 5923,
+  "sha256": "942250db3b9b3954614e6230f2b6eb368291d9f5f2532b4fde17fa3db679b9e0"
+ },
+ "yahoo_FTSE_1d": {
+  "end": "2026-09-29T07:00:00",
+  "rows": 10797,
+  "sha256": "f73f9ce030fea8fcbef7f9f22c04cc2a20e71d8b056fecb15b96e0805768249d"
+ },
+ "yahoo_GBPUSDX_1d": {
+  "end": "2026-09-28T23:00:00",
+  "rows": 5935,
+  "sha256": "08be6ded72ce578f273ba256b72a2790370e336da54b318ef03383ce39007bcb"
+ },
+ "yahoo_GDAXI_1d": {
+  "end": "2026-09-29T07:00:00",
+  "rows": 9799,
+  "sha256": "e2b14063dbff92d3aec030b9f61aee9858cda264d72de390b1e5cf6f613b546b"
+ },
+ "yahoo_GLD_1d": {
+  "end": "2026-09-28T13:30:00",
+  "rows": 5498,
+  "sha256": "d705be395fb55c87d0ac256464f7b4d3c9c86d25a7b91050417572086903b8a1"
+ },
+ "yahoo_GSPC_1d": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 24803,
+  "sha256": "29e77fc0a3976f1ee7cf330c4b8363ab5cda3f3a2d78fc0dbf89772de8b5122b"
+ },
+ "yahoo_HSI_1d": {
+  "end": "2026-09-28T01:30:00",
+  "rows": 9808,
+  "sha256": "9ea912b11f3cd5e3c2ac0f32dd5c243e74624efed9aa028b17c188a283100e0d"
+ },
+ "yahoo_IWM_1d": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 6624,
+  "sha256": "d5dc023cc250aae331406c60f60d3ffb39fea5ce27729dd4c917ec3d0970d95d"
+ },
+ "yahoo_JPYX_1d": {
+  "end": "2026-09-28T23:00:00",
+  "rows": 7757,
+  "sha256": "fe117d9ea8b7724b6a89656e3b5f8bb9fb3b16eb09bbc35daa75db80af8aa14c"
+ },
+ "yahoo_N225_1d": {
+  "end": "2026-09-28T00:00:00",
+  "rows": 15174,
+  "sha256": "876a98dc6572365734e6376d84cd12fc1b481ad1f16594332e5a97da6fceb92a"
+ },
+ "yahoo_NSEI_1d": {
+  "end": "2026-09-29T03:45:00",
+  "rows": 4670,
+  "sha256": "ec6c3cb0b393a12f480d4ee7ab2e0928e75d50efda75725124e7eb86e032c8fc"
+ },
+ "yahoo_QQQ_1d": {
+  "end": "2026-09-28T13:30:00",
+  "rows": 6931,
+  "sha256": "e6980b2225db6af5febb364b0d4def1f7cdfd05ef55c3bc8e92afa1ed5c2b1b3"
+ },
+ "yahoo_SLV_1d": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 5137,
+  "sha256": "19216f2dcf86f9196607bb01ce7e21326af6676e79ee99a5573d0ed1024cd9a6"
+ },
+ "yahoo_TLT_1d": {
+  "end": "2026-09-28T13:30:00",
+  "rows": 6080,
+  "sha256": "70a6b3e9dbe3fd3be88edb29de647fc2663bf593af6a825bb4740cfd7aeddab4"
+ },
+ "yahoo_USO_1d": {
+  "end": "2026-09-29T13:30:00",
+  "rows": 5150,
+  "sha256": "aa40b6794f2e04b291ea9343f5aa5558d1e75918f0ab77183ff2db8bcbf6a287"
+ }
+}

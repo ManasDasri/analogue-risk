@@ -1,5 +1,12 @@
-"""Market data: Binance spot klines and Yahoo daily bars, cached as CSV under data/."""
+"""Market data: Binance spot klines and Yahoo daily bars, cached as CSV under data/.
+
+Every series used in the paper is pinned in data_manifest.json (last bar, row count, SHA-256 of
+the cleaned data). Loading a pinned series truncates it to that bar and checks the hash, so a
+fresh download reproduces the published data exactly or warns that the source has changed.
+"""
+import hashlib
 import json
+import warnings
 import time
 import urllib.request
 from pathlib import Path
@@ -8,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 DATA = Path(__file__).resolve().parents[2] / "data"
+MANIFEST = json.loads((Path(__file__).with_name("data_manifest.json")).read_text())
 COLS = ["open", "high", "low", "close", "volume"]
 
 
@@ -23,19 +31,32 @@ def _get(url):
             time.sleep(2 ** attempt)
 
 
+def digest(df):
+    """SHA-256 of a frame's CSV representation (10 significant digits)."""
+    return hashlib.sha256(df.to_csv(float_format="%.10g").encode()).hexdigest()
+
+
 def _cached(name, fetch):
     path = DATA / f"{name}.csv.gz"
     if not path.exists():
         DATA.mkdir(exist_ok=True)
         fetch().to_csv(path)
-    return _clean(pd.read_csv(path, index_col=0, parse_dates=True))
+    df = _clean(pd.read_csv(path, index_col=0, parse_dates=True))
+    pin = MANIFEST.get(name)
+    if pin is None:
+        return df.iloc[:-1]  # unpinned: the final bar may still be forming
+    df = df[df.index <= pd.Timestamp(pin["end"])]
+    if len(df) != pin["rows"] or digest(df) != pin["sha256"]:
+        warnings.warn(f"{name}: data differs from the pinned snapshot ({len(df)} rows vs {pin['rows']}); "
+                      "the source may have revised its history, so results can differ from the paper",
+                      stacklevel=2)
+    return df
 
 
 def _clean(df):
     df = df[COLS].astype(float).dropna()
     ok = (df[["open", "high", "low", "close"]] > 0).all(axis=1) & (df.high >= df.low)
-    # the final bar may still be forming
-    return df[ok & ~df.index.duplicated()].sort_index().iloc[:-1]
+    return df[ok & ~df.index.duplicated()].sort_index()
 
 
 def binance(symbol, interval="1h", start="2018-01-01"):
