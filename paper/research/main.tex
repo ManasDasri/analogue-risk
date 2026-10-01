@@ -1,0 +1,270 @@
+\documentclass[preprint,12pt,authoryear]{elsarticle}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\emergencystretch=2em
+\usepackage{array}
+\usepackage{rotating}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\graphicspath{{../../results/figures/}}
+\input{tables/macros}
+
+\journal{International Journal of Forecasting}
+
+\begin{document}
+\begin{frontmatter}
+
+\title{Is the predictability in risk or in direction? A pre-registered evaluation of
+regime-conditioned analogue forecasting in financial markets}
+
+\author[cse]{Manas Ganesh Dasari\corref{cor1}}
+\ead{bl.sc.u4cse24229@bl.students.amrita.edu}
+\author[cse]{Vishal KVS}
+\author[math]{K. N. Meera}
+\cortext[cor1]{Corresponding author}
+\affiliation[cse]{organization={Department of Computer Science and Engineering, Amrita School of Computing, Amrita Vishwa Vidyapeetham},
+  city={Bengaluru}, country={India}}
+\affiliation[math]{organization={Department of Mathematics, Amrita School of Computing, Amrita Vishwa Vidyapeetham},
+  city={Bengaluru}, country={India}}
+
+\input{abstract}
+
+\begin{keyword}
+Analogue forecasting \sep Nearest neighbours \sep Volatility forecasting \sep Value-at-Risk \sep
+Hawkes process \sep Pre-registration \sep Model confidence set
+\end{keyword}
+\end{frontmatter}
+
+%% ==================================================================
+\section{Introduction}
+
+Forecasting by analogy is one of the oldest ideas in prediction. \citet{lorenz1969} asked how
+well the atmosphere could be forecast by finding past states that resemble today's and
+following what happened next; \citet{farmer1987} turned the idea into nearest-neighbour
+prediction of chaotic time series. In finance, analogue (nearest-neighbour) methods have been
+applied to exchange rates \citep{fernandez1999} and are now common in retail trading software,
+where their appeal is interpretability: each forecast rests on a list of concrete historical
+episodes that a user can inspect, in contrast to the opaque internal states of deep networks.
+
+This paper began as an attempt to publish such a system: a trading engine that matched the
+current 20-bar return against history with a one-dimensional $k$-nearest-neighbour rule,
+adjusted the resulting win rate with a two-state Markov chain on volatility, suspended trading
+when a Poisson estimate of the probability of a large price jump exceeded a threshold, and sized
+positions with a fractional Kelly criterion \citep{kelly1956}. Its in-sample backtests on Bitcoin
+and gold looked favourable. Rebuilding it for a rigorous evaluation changed the question.
+Analogue methods are easy to evaluate wrongly: an analogue whose outcome window has not closed
+leaks the future; adjacent bars have near-identical features, so the $k$ nearest analogues are
+often one episode counted $k$ times; and trying many configurations and reporting the best
+inflates performance \citep{bailey2014,harvey2016}. Once these problems are removed, the natural
+question is not whether one configuration is profitable but \emph{where}, if anywhere, analogue
+information is predictive.
+
+We answer that question with a leakage-safe analogue engine and a two-stage design. A
+\emph{development} study on nine assets (three hourly cryptocurrencies, six daily equity, bond,
+gold and currency series) was used for all model building. Its findings were then turned into
+eight hypotheses and \emph{pre-registered}---the hypotheses, models, asset list and analysis code
+were committed to a public repository and tagged before any data for the confirmatory assets was
+downloaded---and tested on fifteen new assets. Pre-registration is standard in experimental
+sciences \citep{nosek2018} and has been advocated for empirical finance \citep{harvey2017}, but it
+remains rare in forecasting studies.
+
+The analogue engine is used for four targets: the direction of a trade (the original use), the
+realised variance of returns over the next $h$ bars, the probability of a large jump, and the
+one-day return distribution (Value-at-Risk and Expected Shortfall). Each is compared with
+standard benchmarks under a walk-forward protocol: HAR \citep{corsi2009} and GARCH
+\citep{bollerslev1986} for volatility, Hawkes processes \citep{hawkes1971} for jumps, filtered
+historical simulation \citep{baroneadesi1999} and GARCH-$t$ for tail risk, and gradient-boosted
+trees \citep{friedman2001} as a flexible machine-learning comparator.
+
+Our contributions are threefold. First, we provide a pre-registered, multi-asset evaluation of
+analogue forecasting across direction and risk, with the model confidence set
+\citep{hansen2011}, Diebold--Mariano tests \citep{diebold1995}, the Fissler--Ziegel loss for
+VaR/ES \citep{fissler2016,patton2019} and deflated Sharpe ratios \citep{bailey2014}. Second, we
+introduce design elements that make analogue forecasts statistically meaningful: an exclusion
+zone that keeps analogue outcome windows independent, a mixture over volatility regimes weighted
+by the Markov forecast of the regime over the horizon, and labels produced by the same trade
+simulator that executes the strategy. Third, we release the engine and every script as
+open-source software, so that each table in this paper is reproduced by one command.
+
+The results are summarised in Section~\ref{sec:results}. In brief, analogue methods carry no
+information about direction, but they produce risk forecasts that are competitive with the best
+standard models and, for the tails, unusually well calibrated.
+
+%% ==================================================================
+\section{Related literature}
+
+\paragraph{Analogue and nearest-neighbour forecasting} After \citet{lorenz1969} and
+\citet{farmer1987}, nearest-neighbour predictors were applied to financial series under the
+hypothesis that nonlinear deterministic structure could be exploited where linear models fail.
+\citet{fernandez1999} found that simultaneous nearest-neighbour predictors improved on random-walk
+forecasts of European exchange rates. The weak-form efficient-markets hypothesis \citep{fama1970}
+predicts that such directional structure should be absent or small relative to trading costs.
+Kernel regression \citep{nadaraya1964,watson1964} is the smooth counterpart of $k$NN averaging and
+appears here as a variant of the engine.
+
+\paragraph{Volatility forecasting} Volatility clustering makes risk far more predictable than
+returns. GARCH(1,1) \citep{bollerslev1986} is hard to beat in large comparisons
+\citep{hansen2005}; the heterogeneous autoregressive (HAR) model \citep{corsi2009} captures long
+memory with three averages of past variance. Comparing volatility forecasts requires loss
+functions that are robust to noise in the realised proxy; QLIKE and MSE on the variance scale
+are robust in this sense \citep{patton2011}. The model confidence set \citep{hansen2011}
+identifies the set of models that cannot be distinguished from the best.
+
+\paragraph{Jumps and self-excitation} Large price moves cluster. Hawkes processes
+\citep{hawkes1971} model this through an intensity that jumps after each event and decays; they
+are widely used for market microstructure \citep{bacry2015} and for contagion between markets
+\citep{aitsahalia2015}. The original system used a static Poisson rate estimated over a long
+window, which cannot represent clustering.
+
+\paragraph{Tail-risk forecasting} Filtered historical simulation \citep{baroneadesi1999} rescales
+historical standardised residuals by a current volatility forecast. Coverage of VaR forecasts is
+assessed with the tests of \citet{kupiec1995} and \citet{christoffersen1998}. Expected Shortfall is
+not elicitable on its own but is jointly elicitable with VaR \citep{fissler2016}, and the FZ0 loss
+of \citet{patton2019} is the standard tool for comparing (VaR, ES) forecasts.
+
+\paragraph{Economic value and overfitting} Scaling exposure inversely to forecast variance
+improves risk-adjusted returns in some samples \citep{moreira2017}, but out-of-sample gains are
+fragile \citep{cederburg2020}. Backtests of many configurations must be deflated for multiple
+testing \citep{bailey2012,bailey2014,harvey2016}.
+
+%% ==================================================================
+\section{Methodology}
+\label{sec:method}
+
+\subsection{The analogue engine}
+Let $x_t\in\mathbb{R}^m$ be a causal embedding of the state at bar $t$ and $y_j\in\mathbb{R}^p$ a
+vector of targets attached to anchor $j$, fully observed at $j+\delta$. At bar $t$ the candidate
+set is $\mathcal{C}_t=\{j: j\le t-\delta\}$, so no candidate's outcome extends beyond $t$.
+Distances are Euclidean, $d_{tj}=\lVert x_t-x_j\rVert$.
+
+\paragraph{Exclusion zone} Candidates are accepted in increasing distance, but a candidate is
+skipped if it lies within $e$ bars of an already accepted analogue. With $e\ge h$ the outcome
+windows of accepted analogues do not overlap, so their outcomes are not mechanically
+dependent. Without this rule the nearest neighbours of a smooth feature are usually adjacent
+bars from one episode. A configuration guard rejects settings in which $2ke$ exceeds a quarter
+of the available history, because the greedy rule would then be forced to accept distant,
+non-analogous candidates.
+
+\paragraph{Regime mixture} Each bar has a volatility state $s_t\in\{0,1\}$ (ATR above or below its
+long moving average, following \citealp{wilder1978}). Analogues are selected separately within
+each regime, giving group means $\bar y_0(t)$ and $\bar y_1(t)$. A two-state Markov chain
+estimated on past transitions gives the probability $\pi_1(t)$ of being in the high state,
+averaged over the next $h$ steps; the forecast is
+$\hat y_t = (1-\pi_1)\bar y_0 + \pi_1 \bar y_1$ with standard error
+$\big[(1-\pi_1)^2 \hat\sigma_0^2/k_0 + \pi_1^2 \hat\sigma_1^2/k_1\big]^{1/2}$. This replaces the ad hoc
+adjustment of the original system, which shrank the analogue win rate toward one half by the
+persistence probability, with an application of the law of total probability over regimes
+\citep[cf.][]{hamilton1989}.
+
+\paragraph{Kernel variant} Instead of $k$ neighbours, all candidates can be weighted by
+$w_{tj}=\exp(-d_{tj}^2/2b^2)$; standard errors then use the \citet{kish1965} effective sample size.
+
+\subsection{Direction model}
+The embedding is the last $w=20$ log returns summed into $m$ segments and scaled by the EWMA
+volatility at $t$; $m=1$ without scaling is the feature of the original system. The target is
+not the sign of a future return but the net R-multiple of the exact trade the strategy would
+take at the anchor: entry at the next open, stop $2.5\times$ATR, target $1.5\times$ the stop, exit
+after $h=20$ bars, costs deducted. The same simulator executes live signals, so labels and
+execution cannot disagree. A long (short) trade is entered when the lower confidence bound
+$\hat R - z\,\mathrm{se}$ is positive and exceeds the opposite side's; the fraction of equity risked
+is the fractional Kelly quantity $\tfrac12\,\mathrm{E}[R]/\mathrm{E}[R^2]$, capped at 2\%.
+
+\subsection{Volatility model}
+The target is $\log \mathrm{RV}_{t,h}$ with $\mathrm{RV}_{t,h}=h^{-1}\sum_{u=1}^{h} r_{t+u}^2$ and
+$h=24$ for hourly and $h\in\{5,22\}$ for daily series. The analogue embedding is the \emph{shape}
+of recent volatility: the log mean squared return in $m=4$ consecutive segments of $h$ bars, each
+relative to a long-run EWMA variance $\bar\sigma^2_t$. The analogues forecast the log ratio of
+future variance to $\bar\sigma_t^2$. We also report \emph{Analogue+HAR}, the equal-weight average
+of the analogue and HAR log forecasts. Log-scale forecasts are converted to the variance scale
+with the mean exponentiated residual of the fitting window.
+
+Benchmarks are EWMA \citep{riskmetrics1996} with half-life chosen by QLIKE on the fitting window
+from $\{5,10,20,50,100,200\}$; GARCH(1,1) with variance targeting and its closed-form $h$-step
+mean; log-HAR with averages over $(1, 5, 22)$ days or $(1, 24, 168)$ hours; and gradient-boosted
+trees (histogram-based, 300 iterations, learning rate 0.05, no tuning) given the union of the HAR
+inputs, the analogue embedding, the regime and the long-run level.
+
+\subsection{Tail events}
+A raw jump occurs at $t$ when $|r_t|>3\,\bar\sigma_{t-1}$, measured against the long-run rather
+than the current volatility so that volatility clustering is not normalised away. The target is
+whether at least one jump occurs in the next $h$ bars. Forecasts: the fitting-window base rate;
+the static Poisson estimate of the original system, $1-\exp(-\hat\lambda h)$ with $\hat\lambda$ the
+jump rate over the last 1,000 bars; an exponential Hawkes process with intensity
+$\lambda(t)=\mu+\alpha\beta\sum_{t_i<t}e^{-\beta(t-t_i)}$, fitted by maximum likelihood, giving
+$1-\exp\{-\mu h-\alpha S_t(1-e^{-\beta h})\}$ with $S_t$ the decayed event count; a logistic
+regression on $\log(\hat\sigma^2_{\mathrm{EWMA},t}/\bar\sigma^2_t)$; and the analogue frequency.
+
+\subsection{Value-at-Risk and Expected Shortfall}
+For one-day VaR and ES at $\alpha\in\{1\%,2.5\%,5\%\}$ all models except historical simulation
+(HS, 250 days) use the same GARCH(1,1) forecast $\hat\sigma_{t+1}$, isolating the shape of the
+innovation distribution: Gaussian (GARCH-N), standardised Student-$t$ with maximum-likelihood
+degrees of freedom (GARCH-$t$), the empirical distribution of all past standardised residuals
+(FHS), and the weighted empirical distribution of the standardised residuals that followed the
+$k$ nearest volatility-shape analogues (Analogue). \emph{Blend} averages the Analogue and FHS
+quantiles and shortfalls.
+
+\subsection{Volatility-managed exposure}
+A long position is scaled by $\min(\sigma^\ast/\hat\sigma_{t},1)$, where $\sigma^\ast$ is the average
+volatility in the calibration period, with no leverage, a rebalancing band of 0.1 and costs of
+5\,bp per unit of turnover. A variant additionally sets exposure to zero when the Hawkes jump
+probability exceeds its calibration-period 90th percentile, reproducing the ``lock'' of the
+original system.
+
+%% ==================================================================
+\section{Experimental design}
+\label{sec:design}
+
+\paragraph{Data} Hourly spot prices from Binance and daily prices from Yahoo Finance
+(Table~\ref{tab:data}). The development set comprises BTC, ETH and PAXG (a gold-backed token)
+hourly from 2018 (PAXG from 2020), and the S\&P 500 (from 1927), Nasdaq-100 ETF, gold ETF,
+long-Treasury ETF, EUR/USD and NIFTY 50 daily. The confirmatory set, fixed in the
+pre-registration, comprises SOL, BNB, XRP, ADA and LTC hourly and DAX, Nikkei 225, FTSE 100, Hang
+Seng, Russell 2000 ETF, emerging-markets ETF, silver ETF, oil ETF, GBP/USD and USD/JPY daily.
+Daily Yahoo series pass a documented filter that removes isolated bad prints (a move of more
+than eight 20-day standard deviations reversed by more than 70\% on the next bar).
+
+\paragraph{Walk-forward protocol} Each series is split into a calibration period (the first 30\%
+of bars, and at least the warm-up plus 500 bars) and an out-of-sample period of five consecutive
+folds. For each fold, every fitted quantity---EWMA half-life, GARCH, HAR, gradient boosting,
+Hawkes and logistic parameters, bias corrections, and the direction model's configuration
+chosen from an 18-point grid---uses only data observed before the fold. All results are
+out-of-sample.
+
+\paragraph{Statistics} Volatility forecasts are compared with QLIKE and log-MSE, Diebold--Mariano
+tests with Newey--West variance at lag $h$ \citep{newey1987}, and the 90\% model confidence set
+with the $T_{\max}$ statistic and 1,000 stationary-bootstrap draws \citep{politis1994}. Jump
+forecasts use log-loss, Brier score and AUC. VaR/ES forecasts use Kupiec and Christoffersen tests,
+tick loss and the FZ0 loss, with a model confidence set on FZ0. Trading results use Sharpe ratios,
+drawdowns, the deflated Sharpe ratio for the direction grid, and paired stationary-bootstrap tests
+of Sharpe differences.
+
+\paragraph{Pre-registration} After the development study, eight hypotheses
+(Table~\ref{tab:hyp}), the confirmatory asset list, an exclusion rule (fewer than 20,000 hourly or
+3,000 daily bars), the unchanged model code and the analysis script were committed to the public
+repository and tagged \texttt{prereg-v1} before any confirmatory data was downloaded. Tests are
+across series; family-wise error over the eight primary endpoints is controlled with Holm's method
+\citep{holm1979}. Development-set results are exploratory---some were inspected during model
+building---and are never pooled with confirmatory results.
+
+\input{results}
+
+\section*{Data and code availability}
+All code, the pre-registration and every result table are available at
+\url{https://github.com/ManasDasri/analogue-risk} under the MIT license. The pre-registration is the
+tagged commit \texttt{prereg-v1}. Price data are downloaded from public Binance and Yahoo Finance
+endpoints by the included scripts.
+
+\section*{Declaration of competing interest}
+The authors hold a patent on the original trading method evaluated in this paper. The evaluation
+was pre-registered and its results are reported in full.
+
+\section*{Declaration of generative AI and AI-assisted technologies in the writing process}
+During the preparation of this work the authors used Claude (Anthropic) to assist with software
+development, analysis and drafting. After using this tool, the authors reviewed and edited the
+content as needed and take full responsibility for the content of the publication.
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{../refs}
+
+\end{document}

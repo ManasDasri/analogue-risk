@@ -68,6 +68,21 @@ fn forecast<'py>(
     to2d(py, flat, 2 * p + 2)
 }
 
+/// kNN analogue sets: (indices n x 2k, weights n x 2k), padded with -1 / 0.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn neighbours<'py>(
+    py: Python<'py>, emb: PyReadonlyArray2<f64>, state: PyReadonlyArray1<u8>, y: PyReadonlyArray2<f64>,
+    w: usize, delay: usize, h: usize, lookback: usize, k: usize, k_min: usize, excl: usize, regime: bool,
+    warmup: usize,
+) -> PyResult<(Bound<'py, PyArray2<i64>>, Bound<'py, PyArray2<f64>>)> {
+    let (m, p) = (emb.as_array().ncols(), y.as_array().ncols());
+    let (e, st, y) = (emb.as_slice()?, state.as_slice()?, y.as_slice()?);
+    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth: 0.0 };
+    let (idx, wt) = py.detach(|| analog::neighbours(e, m, st, y, p, &prm));
+    Ok((idx.into_pyarray(py).reshape([st.len(), 2 * k])?, to2d(py, wt, 2 * k)?))
+}
+
 /// Zero-mean GARCH(1,1): (one-step variance forecasts, log-likelihood from `start`).
 #[pyfunction]
 fn garch_filter<'py>(
@@ -134,6 +149,7 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(embed, m)?)?;
     m.add_function(wrap_pyfunction!(labels, m)?)?;
     m.add_function(wrap_pyfunction!(forecast, m)?)?;
+    m.add_function(wrap_pyfunction!(neighbours, m)?)?;
     m.add_function(wrap_pyfunction!(garch_filter, m)?)?;
     m.add_function(wrap_pyfunction!(hawkes_loglik, m)?)?;
     m.add_function(wrap_pyfunction!(hawkes_prob, m)?)?;

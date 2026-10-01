@@ -1,0 +1,53 @@
+\begin{tabular}{lrrrrrr}
+\toprule
+Series (horizon) & EWMA & GARCH & HAR & GBM & Analogue & Analogue+HAR \\
+\midrule
+\multicolumn{7}{l}{\textit{Development set}}\\
+BTC (h=24) & 1.101 & 1.107 & \textbf{1.000} & 1.270 & 1.041 & \textbf{0.992}\\
+ETH (h=24) & 1.147 & \textbf{1.067} & \textbf{1.000} & 1.251 & \textbf{1.033} & \textbf{0.990}\\
+EUR/USD (h=22) & \textbf{0.987} & \textbf{1.078} & \textbf{1.000} & 1.399 & \textbf{1.017} & \textbf{0.911}\\
+EUR/USD (h=5) & \textbf{0.939} & \textbf{0.928} & 1.000 & 1.525 & 1.028 & 0.982\\
+Gold (h=22) & \textbf{0.896} & \textbf{1.003} & \textbf{1.000} & 1.527 & \textbf{0.906} & \textbf{0.891}\\
+Gold (h=5) & \textbf{1.015} & \textbf{0.969} & \textbf{1.000} & 1.625 & \textbf{1.103} & \textbf{1.012}\\
+NIFTY 50 (h=22) & \textbf{1.044} & \textbf{0.894} & \textbf{1.000} & 2.016 & \textbf{1.272} & \textbf{1.071}\\
+NIFTY 50 (h=5) & \textbf{1.073} & \textbf{1.004} & \textbf{1.000} & 1.574 & \textbf{1.106} & \textbf{1.023}\\
+Nasdaq-100 (h=22) & \textbf{1.262} & \textbf{0.980} & \textbf{1.000} & 1.974 & 1.434 & \textbf{1.122}\\
+Nasdaq-100 (h=5) & \textbf{1.022} & \textbf{0.942} & \textbf{1.000} & 2.139 & 1.084 & \textbf{1.018}\\
+PAXG (h=24) & \textbf{1.109} & \textbf{1.087} & \textbf{1.000} & 1.308 & \textbf{1.172} & \textbf{1.047}\\
+S\&P 500 (h=22) & 1.222 & \textbf{1.023} & \textbf{1.000} & 1.466 & 1.209 & \textbf{1.023}\\
+S\&P 500 (h=5) & 1.075 & \textbf{0.984} & \textbf{1.000} & 1.152 & 1.056 & \textbf{0.992}\\
+Treasuries (h=22) & \textbf{1.049} & \textbf{1.042} & \textbf{1.000} & 1.522 & \textbf{1.190} & \textbf{1.019}\\
+Treasuries (h=5) & \textbf{1.010} & \textbf{0.975} & \textbf{1.000} & 1.368 & 1.133 & \textbf{1.012}\\
+\addlinespace Mean ratio & 1.063 & 1.006 & 1.000 & 1.541 & 1.119 & 1.007\\
+In 90\% MCS & 11/15 & 14/15 & 14/15 & 0/15 & 8/15 & 14/15\\
+\midrule
+\multicolumn{7}{l}{\textit{Confirmatory set}}\\
+ADA (h=24) & 1.105 & 1.071 & \textbf{1.000} & 1.323 & \textbf{1.014} & \textbf{0.977}\\
+BNB (h=24) & 1.151 & 1.162 & \textbf{1.000} & 1.242 & 1.070 & \textbf{1.001}\\
+DAX (h=22) & 1.181 & \textbf{0.972} & \textbf{1.000} & 1.256 & 1.329 & 1.056\\
+DAX (h=5) & 1.044 & \textbf{0.962} & 1.000 & 1.281 & 1.055 & 0.993\\
+Emerging mkts (h=22) & \textbf{1.241} & \textbf{0.990} & \textbf{1.000} & \textbf{1.307} & \textbf{1.167} & \textbf{1.033}\\
+Emerging mkts (h=5) & \textbf{1.051} & \textbf{0.984} & \textbf{1.000} & 1.358 & 1.098 & \textbf{1.012}\\
+FTSE 100 (h=22) & \textbf{1.037} & \textbf{0.927} & \textbf{1.000} & 1.695 & 1.146 & \textbf{0.998}\\
+FTSE 100 (h=5) & \textbf{0.993} & \textbf{0.936} & \textbf{1.000} & 1.410 & \textbf{1.017} & \textbf{0.980}\\
+GBP/USD (h=22) & \textbf{0.983} & \textbf{0.991} & \textbf{1.000} & 1.624 & 1.108 & \textbf{1.009}\\
+GBP/USD (h=5) & \textbf{1.000} & \textbf{0.982} & \textbf{1.000} & 1.645 & 1.087 & \textbf{1.011}\\
+Hang Seng (h=22) & \textbf{1.017} & \textbf{0.950} & \textbf{1.000} & 1.756 & 1.231 & \textbf{1.034}\\
+Hang Seng (h=5) & \textbf{1.011} & \textbf{0.986} & \textbf{1.000} & 1.423 & 1.091 & \textbf{1.008}\\
+LTC (h=24) & 1.114 & 1.106 & \textbf{1.000} & 1.330 & 1.055 & \textbf{0.997}\\
+Nikkei 225 (h=22) & \textbf{1.125} & \textbf{1.130} & \textbf{1.000} & 1.598 & \textbf{1.155} & \textbf{1.003}\\
+Nikkei 225 (h=5) & 1.118 & 1.078 & \textbf{1.000} & 1.348 & 1.056 & \textbf{0.994}\\
+Oil (h=22) & \textbf{1.362} & \textbf{0.986} & \textbf{1.000} & \textbf{2.214} & \textbf{1.486} & \textbf{1.164}\\
+Oil (h=5) & \textbf{1.081} & \textbf{1.061} & \textbf{1.000} & 1.889 & \textbf{1.021} & \textbf{0.971}\\
+Russell 2000 (h=22) & \textbf{1.333} & \textbf{0.924} & \textbf{1.000} & 1.808 & \textbf{1.634} & \textbf{1.172}\\
+Russell 2000 (h=5) & \textbf{1.011} & \textbf{0.946} & \textbf{1.000} & 1.959 & 1.107 & \textbf{1.010}\\
+SOL (h=24) & 1.105 & 1.110 & \textbf{1.000} & 1.313 & 1.053 & \textbf{0.996}\\
+Silver (h=22) & \textbf{0.976} & \textbf{0.927} & \textbf{1.000} & 2.720 & \textbf{1.234} & \textbf{1.049}\\
+Silver (h=5) & \textbf{0.979} & \textbf{0.970} & \textbf{1.000} & 1.600 & \textbf{1.002} & \textbf{0.960}\\
+USD/JPY (h=22) & \textbf{0.658} & \textbf{1.058} & \textbf{1.000} & 1.432 & \textbf{0.650} & \textbf{0.691}\\
+USD/JPY (h=5) & \textbf{1.012} & \textbf{0.977} & \textbf{1.000} & 1.375 & \textbf{1.021} & \textbf{0.978}\\
+XRP (h=24) & \textbf{1.235} & \textbf{1.000} & \textbf{1.000} & 1.249 & \textbf{0.982} & \textbf{0.955}\\
+\addlinespace Mean ratio & 1.077 & 1.007 & 1.000 & 1.566 & 1.115 & 1.002\\
+In 90\% MCS & 18/25 & 20/25 & 24/25 & 2/25 & 12/25 & 23/25\\
+\bottomrule
+\end{tabular}
