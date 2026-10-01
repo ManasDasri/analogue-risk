@@ -1,9 +1,10 @@
 """Evaluation statistics: forecast comparison, performance metrics and bootstrap inference."""
+
 import numpy as np
 from scipy.stats import norm, rankdata
 
-
 # ---------------------------------------------------------------- bootstrap
+
 
 def stationary_indices(T, B, block, rng):
     """B x T indices of the Politis-Romano stationary bootstrap (geometric blocks, mean `block`)."""
@@ -11,8 +12,8 @@ def stationary_indices(T, B, block, rng):
     new[:, 0] = True
     starts = rng.integers(0, T, (B, T))
     t = np.arange(T)
-    gstart = np.maximum.accumulate(np.where(new, t, 0), axis=1)          # time the current block began
-    first = np.take_along_axis(starts, gstart, axis=1)                    # its random origin
+    gstart = np.maximum.accumulate(np.where(new, t, 0), axis=1)  # time the current block began
+    first = np.take_along_axis(starts, gstart, axis=1)  # its random origin
     return (first + t - gstart) % T
 
 
@@ -31,7 +32,7 @@ def politis_white_block(x):
     # smallest m whose next kn autocorrelations (lags m+1..m+kn) are all insignificant
     M = mmax
     for m in range(0, mmax - kn + 1):
-        if np.all(np.abs(rho[m: m + kn]) < crit):
+        if np.all(np.abs(rho[m : m + kn]) < crit):
             M = min(2 * max(m, 1), mmax)
             break
     k = np.arange(-M, M + 1)
@@ -39,7 +40,7 @@ def politis_white_block(x):
     r = acov[np.abs(k)]
     g = np.sum(lam * np.abs(k) * r)
     d = 2 * np.sum(lam * r) ** 2
-    b = (2 * g ** 2 / d) ** (1 / 3) * n ** (1 / 3) if d > 0 else 1.0
+    b = (2 * g**2 / d) ** (1 / 3) * n ** (1 / 3) if d > 0 else 1.0
     return float(min(max(b, 1.0), bmax))
 
 
@@ -55,6 +56,7 @@ def boot_means(X, B=1000, block=20, seed=0, chunk=50):
 
 
 # ---------------------------------------------------------------- forecast comparison
+
 
 def newey_west_var(d, lag):
     d = d - d.mean()
@@ -79,13 +81,13 @@ def model_confidence_set(losses, B=1000, block=20, seed=0):
     a model is in the (1 - alpha) MCS iff its p-value >= alpha."""
     names = list(losses)
     L = np.column_stack([losses[k] for k in names])
-    bm = boot_means(L, B, block, seed)                  # B x M
+    bm = boot_means(L, B, block, seed)  # B x M
     mean = L.mean(0)
     alive = list(range(len(names)))
     pvals, running = {}, 0.0
     while len(alive) > 1:
         a = np.array(alive)
-        dbar = mean[a] - mean[a].mean()                 # loss relative to the average of survivors
+        dbar = mean[a] - mean[a].mean()  # loss relative to the average of survivors
         dboot = bm[:, a] - bm[:, a].mean(1, keepdims=True)
         var = ((dboot - dbar) ** 2).mean(0)
         t = dbar / np.sqrt(var)
@@ -100,6 +102,7 @@ def model_confidence_set(losses, B=1000, block=20, seed=0):
 
 
 # ---------------------------------------------------------------- probability forecasts
+
 
 def log_loss(p, y):
     p = np.clip(p, 1e-6, 1 - 1e-6)
@@ -119,6 +122,7 @@ def auc(p, y):
 
 # ---------------------------------------------------------------- performance
 
+
 def sharpe(r, ppy):
     s = r.std(ddof=1)
     return r.mean() / s * np.sqrt(ppy) if s > 0 else 0.0
@@ -137,8 +141,13 @@ def cvar(r, q=0.05):
 def summary(r, ppy, w=None):
     eq = np.cumprod(1 + r)
     years = len(r) / ppy
-    out = dict(sharpe=sharpe(r, ppy), ann_ret=eq[-1] ** (1 / years) - 1, ann_vol=r.std() * np.sqrt(ppy),
-               max_dd=max_drawdown(r), cvar5=cvar(r))
+    out = dict(
+        sharpe=sharpe(r, ppy),
+        ann_ret=eq[-1] ** (1 / years) - 1,
+        ann_vol=r.std() * np.sqrt(ppy),
+        max_dd=max_drawdown(r),
+        cvar5=cvar(r),
+    )
     out["calmar"] = out["ann_ret"] / abs(out["max_dd"]) if out["max_dd"] < 0 else np.nan
     if w is not None:
         out["avg_exposure"] = np.mean(np.abs(w))
@@ -152,7 +161,7 @@ def psr(r, sr_star=0.0):
     sr = r.mean() / r.std(ddof=1)
     g3 = ((r - r.mean()) ** 3).mean() / r.std() ** 3
     g4 = ((r - r.mean()) ** 4).mean() / r.std() ** 4
-    return norm.cdf((sr - sr_star) * np.sqrt(len(r) - 1) / np.sqrt(1 - g3 * sr + (g4 - 1) / 4 * sr ** 2))
+    return norm.cdf((sr - sr_star) * np.sqrt(len(r) - 1) / np.sqrt(1 - g3 * sr + (g4 - 1) / 4 * sr**2))
 
 
 def dsr(r, trial_srs):
@@ -162,7 +171,9 @@ def dsr(r, trial_srs):
     if n < 2:
         return psr(r)
     gamma = 0.5772156649
-    sr0 = np.std(trial_srs, ddof=1) * ((1 - gamma) * norm.ppf(1 - 1 / n) + gamma * norm.ppf(1 - 1 / (n * np.e)))
+    sr0 = np.std(trial_srs, ddof=1) * (
+        (1 - gamma) * norm.ppf(1 - 1 / n) + gamma * norm.ppf(1 - 1 / (n * np.e))
+    )
     return psr(r, sr0)
 
 

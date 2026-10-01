@@ -6,6 +6,7 @@
 one-call risk forecaster used in the paper (volatility-shape analogues, optionally combined with
 HAR in the walk-forward study).
 """
+
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -35,6 +36,7 @@ class Analogue:
     min_history : rows before the first forecast.
     k_min : minimum analogues (or effective sample) for a regime group to be used.
     """
+
     horizon: int
     k: int = 20
     exclusion: int | None = None
@@ -56,9 +58,21 @@ class Analogue:
         delay = self.horizon if delay is None else delay
         excl = self.horizon if self.exclusion is None else self.exclusion
         regime = self.regime and state is not None
-        lookback = 10 ** 9 if self.lookback is None else self.lookback
-        return (emb, st, y, 0, delay, self.horizon, lookback, self.k, self.k_min, excl, regime,
-                self.min_history), y.shape[1]
+        lookback = 10**9 if self.lookback is None else self.lookback
+        return (
+            emb,
+            st,
+            y,
+            0,
+            delay,
+            self.horizon,
+            lookback,
+            self.k,
+            self.k_min,
+            excl,
+            regime,
+            self.min_history,
+        ), y.shape[1]
 
     def forecast(self, embedding, targets, state=None, delay=None, index=None):
         """Forecast every target column at every row.
@@ -71,8 +85,12 @@ class Analogue:
         (NaN rows where no forecast exists, e.g. during warm-up).
         """
         args, p = self._args(embedding, targets, state, delay)
-        out = core.forecast(*args, self.bandwidth, args[4] if (self.kernel_block and self.bandwidth > 0) else 0)
-        cols = [f"mean_{i}" for i in range(p)] + [f"se_{i}" for i in range(p)] + ["n_analogues", "p_high_regime"]
+        out = core.forecast(
+            *args, self.bandwidth, args[4] if (self.kernel_block and self.bandwidth > 0) else 0
+        )
+        cols = (
+            [f"mean_{i}" for i in range(p)] + [f"se_{i}" for i in range(p)] + ["n_analogues", "p_high_regime"]
+        )
         return pd.DataFrame(out, index=index, columns=cols)
 
     def neighbours(self, embedding, targets, state=None, delay=None):
@@ -94,11 +112,14 @@ def volatility_forecast(prices, horizon=24, kernel=True, **overrides):
     Returns a DataFrame indexed like `prices` with the variance forecast, its log, the realised
     value where already known, and the number (or effective number) of analogues used.
     """
-    from . import model as M, vol as V
+    from . import model as M
+    from . import vol as V
 
     base = V.HOURLY if horizon == 24 else replace(V.DAILY_W, h=horizon)
     cfg = replace(base, bandwidth=0.6 if kernel else 0.0, kernel_block=kernel, **overrides)
     d = V.VolData(M.Market(prices), cfg)
     log_f, _, F = V.analogue(d, cfg)
-    return pd.DataFrame({"variance": np.exp(log_f), "log_variance": log_f, "realised": d.realised,
-                         "n_analogues": F[:, -2]}, index=prices.index)
+    return pd.DataFrame(
+        {"variance": np.exp(log_f), "log_variance": log_f, "realised": d.realised, "n_analogues": F[:, -2]},
+        index=prices.index,
+    )

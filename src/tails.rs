@@ -9,7 +9,11 @@ fn quantile_sorted(x: &[f64], alpha: f64) -> f64 {
     let t = pos - lo as f64;
     let (a, b) = (x[lo], x[hi]);
     let d = b - a;
-    if t >= 0.5 { b - d * (1.0 - t) } else { a + d * t }
+    if t >= 0.5 {
+        b - d * (1.0 - t)
+    } else {
+        a + d * t
+    }
 }
 
 fn tail(x: &[f64], alpha: f64) -> (f64, f64) {

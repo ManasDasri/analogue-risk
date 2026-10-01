@@ -1,5 +1,6 @@
 """Correctness tests: causality (no look-ahead), likelihoods against brute force, label/backtest
 consistency, planted-signal recovery and the evaluation statistics."""
+
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -10,7 +11,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
 from analogue_risk import _core as core  # noqa: E402
-from analogue_risk import model as M, stats as S, vol as V  # noqa: E402
+from analogue_risk import model as M  # noqa: E402
+from analogue_risk import stats as S
+from analogue_risk import vol as V
 
 
 def synthetic(n=6000, seed=0, drift_block=0, vol_regimes=True):
@@ -23,15 +26,18 @@ def synthetic(n=6000, seed=0, drift_block=0, vol_regimes=True):
     o = np.r_[c[0], c[:-1]]
     h = np.maximum(o, c) * (1 + np.abs(rng.normal(0, 0.002, n)))
     l = np.minimum(o, c) * (1 - np.abs(rng.normal(0, 0.002, n)))
-    return pd.DataFrame(dict(open=o, high=h, low=l, close=c, volume=1.0),
-                        index=pd.date_range("2000", periods=n, freq="h"))
+    return pd.DataFrame(
+        dict(open=o, high=h, low=l, close=c, volume=1.0), index=pd.date_range("2000", periods=n, freq="h")
+    )
 
 
 SMALL_DIR = M.Config(min_hist=1800, k=10, regime_len=300, cost_bps=0)
 SMALL_VOL = replace(V.HOURLY, min_hist=4000, regime_len=300, har=(1, 24, 168), k=10)
 
 
-@pytest.mark.parametrize("vc", [SMALL_VOL, replace(SMALL_VOL, bandwidth=0.3), replace(SMALL_VOL, regime=False)])
+@pytest.mark.parametrize(
+    "vc", [SMALL_VOL, replace(SMALL_VOL, bandwidth=0.3), replace(SMALL_VOL, regime=False)]
+)
 def test_vol_forecast_is_causal(vc):
     df = synthetic()
     t0 = 4500
@@ -155,7 +161,20 @@ def test_neighbours_reproduce_forecast_means():
     d = V.VolData(M.Market(synthetic()), SMALL_VOL)
     vc = SMALL_VOL
     y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
-    args = (d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, vc.lookback, vc.k, vc.k_min, vc.h, vc.regime, vc.warmup)
+    args = (
+        d.emb,
+        d.state,
+        y,
+        vc.m * vc.seg,
+        vc.h,
+        vc.h,
+        vc.lookback,
+        vc.k,
+        vc.k_min,
+        vc.h,
+        vc.regime,
+        vc.warmup,
+    )
     F = core.forecast(*args)
     idx, w = core.neighbours(*args)
     vals = np.where(idx >= 0, y[np.maximum(idx, 0), 0], 0.0)
@@ -166,11 +185,15 @@ def test_neighbours_reproduce_forecast_means():
 
 def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
     from analogue_risk import data as D
+
     df = synthetic(300)
     pinned = D._clean(df.iloc[:250])
     monkeypatch.setattr(D, "DATA", tmp_path)
-    monkeypatch.setattr(D, "MANIFEST", {"x": {"end": pinned.index[-1].isoformat(), "rows": len(pinned),
-                                              "sha256": D.digest(pinned)}})
+    monkeypatch.setattr(
+        D,
+        "MANIFEST",
+        {"x": {"end": pinned.index[-1].isoformat(), "rows": len(pinned), "sha256": D.digest(pinned)}},
+    )
     df.to_csv(tmp_path / "x.csv.gz")  # the source now has 50 more bars than the snapshot
     out = D._cached("x", None)
     assert len(out) == 250 and D.digest(out) == D.digest(pinned)
@@ -183,15 +206,20 @@ def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
 
 def test_klines_timestamps_ms_and_us():
     from analogue_risk import data as D
-    rows = [[1551398400000, "1", "2", "0.5", "1.5", "10"],          # 2019, milliseconds
-            [1740787200000000, "1", "2", "0.5", "1.5", "10"]]       # 2025, microseconds (archive)
+
+    rows = [
+        [1551398400000, "1", "2", "0.5", "1.5", "10"],  # 2019, milliseconds
+        [1740787200000000, "1", "2", "0.5", "1.5", "10"],
+    ]  # 2025, microseconds (archive)
     df = D._klines_frame(rows)
     assert list(df.index) == [pd.Timestamp("2019-03-01"), pd.Timestamp("2025-03-01")]
 
 
 def test_binance_falls_back_to_archive_when_geo_blocked(tmp_path, monkeypatch):
     import urllib.error
+
     from analogue_risk import data as D
+
     monkeypatch.setattr(D, "DATA", tmp_path)
 
     def blocked(*a):
@@ -211,15 +239,32 @@ def _as_tradingview_csv(trades, path, tz):
     for i, t in enumerate(trades.itertuples(), 1):
         side = "long" if t.dir == 1 else "short"
         loc = lambda ts: ts.tz_localize("UTC").tz_convert(tz).strftime("%Y-%m-%d %H:%M")
-        rows.append({"Trade #": i, "Type": f"Exit {side}", "Signal": "x", "Date/Time": loc(t.exit_time),
-                     "Price USDT": t.exit_px, "Contracts": 1})
-        rows.append({"Trade #": i, "Type": f"Entry {side}", "Signal": "KNN", "Date/Time": loc(t.entry_time),
-                     "Price USDT": t.entry_px, "Contracts": 1})
+        rows.append(
+            {
+                "Trade #": i,
+                "Type": f"Exit {side}",
+                "Signal": "x",
+                "Date/Time": loc(t.exit_time),
+                "Price USDT": t.exit_px,
+                "Contracts": 1,
+            }
+        )
+        rows.append(
+            {
+                "Trade #": i,
+                "Type": f"Entry {side}",
+                "Signal": "KNN",
+                "Date/Time": loc(t.entry_time),
+                "Price USDT": t.entry_px,
+                "Contracts": 1,
+            }
+        )
     pd.DataFrame(rows).to_csv(path, index=False)
 
 
 def test_pine_parity_harness_self_consistent(tmp_path):
     from analogue_risk import pine_parity as P
+
     ours = P.port_trades(M.Market(synthetic(6000)))
     assert len(ours) > 10
     _as_tradingview_csv(ours, tmp_path / "tv.csv", "Asia/Kolkata")
@@ -231,10 +276,16 @@ def test_pine_parity_harness_self_consistent(tmp_path):
 TV_EXPORT = Path(__file__).parent / "data" / "tradingview_btcusdt_1h.csv"
 
 
-@pytest.mark.skipif(not TV_EXPORT.exists(), reason="export the original strategy's trade list from TradingView")
+@pytest.mark.skipif(
+    not TV_EXPORT.exists(), reason="export the original strategy's trade list from TradingView"
+)
 def test_pine_port_matches_tradingview():
-    from analogue_risk import data as D, pine_parity as P
-    report, _ = P.compare(P.read_tradingview(TV_EXPORT, "UTC"), P.port_trades(M.Market(D.binance("BTCUSDT", "1h"))))
+    from analogue_risk import data as D
+    from analogue_risk import pine_parity as P
+
+    report, _ = P.compare(
+        P.read_tradingview(TV_EXPORT, "UTC"), P.port_trades(M.Market(D.binance("BTCUSDT", "1h")))
+    )
     assert report["match rate (of TradingView)"] >= 0.95
 
 
@@ -242,24 +293,51 @@ def test_kernel_block_effective_sample_size():
     d = V.VolData(M.Market(synthetic(8000)), SMALL_VOL)
     vc = SMALL_VOL
     y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
-    args = (d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, vc.lookback, vc.k, vc.k_min, vc.h, vc.regime, vc.warmup, 0.6)
+    args = (
+        d.emb,
+        d.state,
+        y,
+        vc.m * vc.seg,
+        vc.h,
+        vc.h,
+        vc.lookback,
+        vc.k,
+        vc.k_min,
+        vc.h,
+        vc.regime,
+        vc.warmup,
+        0.6,
+    )
     off, one, blk = core.forecast(*args, 0), core.forecast(*args, 1), core.forecast(*args, vc.h)
-    np.testing.assert_array_equal(off, one)                     # blocks of one anchor = per-anchor Kish
+    np.testing.assert_array_equal(off, one)  # blocks of one anchor = per-anchor Kish
     ok = np.isfinite(blk[:, 0]) & np.isfinite(off[:, 0])
-    np.testing.assert_allclose(blk[ok, :2], off[ok, :2])         # means unchanged
-    assert (blk[ok, 2:4] >= off[ok, 2:4] - 1e-15).all()          # standard errors never smaller
-    assert np.median(blk[ok, 4] / off[ok, 4]) < 0.5              # far fewer effective observations
+    np.testing.assert_allclose(blk[ok, :2], off[ok, :2])  # means unchanged
+    assert (blk[ok, 2:4] >= off[ok, 2:4] - 1e-15).all()  # standard errors never smaller
+    assert np.median(blk[ok, 4] / off[ok, 4]) < 0.5  # far fewer effective observations
 
 
 def test_public_api_matches_core_and_validates():
     from analogue_risk import Analogue, volatility_forecast
+
     d = V.VolData(M.Market(synthetic()), SMALL_VOL)
     vc = SMALL_VOL
     y = np.column_stack([d.target - np.log(d.long), d.tail])
     model = Analogue(horizon=vc.h, k=vc.k, min_history=vc.warmup)
     F = model.forecast(d.emb, y, state=d.state)
-    raw = core.forecast(np.ascontiguousarray(d.emb), d.state, np.ascontiguousarray(y), 0, vc.h, vc.h, 10**9,
-                        vc.k, vc.k_min, vc.h, True, vc.warmup)
+    raw = core.forecast(
+        np.ascontiguousarray(d.emb),
+        d.state,
+        np.ascontiguousarray(y),
+        0,
+        vc.h,
+        vc.h,
+        10**9,
+        vc.k,
+        vc.k_min,
+        vc.h,
+        True,
+        vc.warmup,
+    )
     np.testing.assert_array_equal(F.to_numpy(), raw)
     assert list(F.columns) == ["mean_0", "mean_1", "se_0", "se_1", "n_analogues", "p_high_regime"]
     idx, w = model.neighbours(d.emb, y, state=d.state)

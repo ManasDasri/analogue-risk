@@ -8,13 +8,15 @@ original script on BINANCE:BTCUSDT, 1h, default inputs, then run:
 `--tz` is the chart timezone the export was made in (TradingView writes times in it).
 Trades are matched by entry bar and direction; exit bar and prices are then compared.
 """
+
 import argparse
 import sys
 
 import numpy as np
 import pandas as pd
 
-from . import data, model as M
+from . import data
+from . import model as M
 
 
 def _col(df, *keys):
@@ -32,18 +34,30 @@ def read_tradingview(path, tz="UTC"):
     raw[when] = pd.to_datetime(raw[when]).dt.tz_localize(tz).dt.tz_convert("UTC").dt.tz_localize(None)
     entry = raw[raw[typ].str.lower().str.startswith("entry")].set_index(num)
     exit_ = raw[raw[typ].str.lower().str.startswith("exit")].set_index(num)
-    out = pd.DataFrame({
-        "entry_time": entry[when], "exit_time": exit_[when].reindex(entry.index),
-        "dir": np.where(entry[typ].str.lower().str.contains("long"), 1, -1),
-        "entry_px": entry[price].astype(float), "exit_px": exit_[price].reindex(entry.index).astype(float)})
+    out = pd.DataFrame(
+        {
+            "entry_time": entry[when],
+            "exit_time": exit_[when].reindex(entry.index),
+            "dir": np.where(entry[typ].str.lower().str.contains("long"), 1, -1),
+            "entry_px": entry[price].astype(float),
+            "exit_px": exit_[price].reindex(entry.index).astype(float),
+        }
+    )
     return out.dropna(subset=["exit_time"]).sort_values("entry_time").reset_index(drop=True)
 
 
 def port_trades(mkt):
     tr = M.run_v1(mkt, cost_bps=1.0)["trades"]
     idx = mkt.df.index
-    return pd.DataFrame({"entry_time": idx[tr["entry_bar"]], "exit_time": idx[tr["exit_bar"]], "dir": tr["dir"],
-                         "entry_px": tr["entry_px"], "exit_px": tr["exit_px"]})
+    return pd.DataFrame(
+        {
+            "entry_time": idx[tr["entry_bar"]],
+            "exit_time": idx[tr["exit_bar"]],
+            "dir": tr["dir"],
+            "entry_px": tr["entry_px"],
+            "exit_px": tr["exit_px"],
+        }
+    )
 
 
 def compare(tv, ours, price_tol=1e-4):
@@ -55,11 +69,17 @@ def compare(tv, ours, price_tol=1e-4):
     both = m[m["_merge"] == "both"]
     rel = lambda a, b: (a - b).abs() / b.abs()
     report = {
-        "tradingview trades": len(tv), "port trades in window": len(ours), "matched entries": len(both),
+        "tradingview trades": len(tv),
+        "port trades in window": len(ours),
+        "matched entries": len(both),
         "match rate (of TradingView)": len(both) / max(len(tv), 1),
         "same exit bar": float((both.exit_time_tv == both.exit_time_port).mean()) if len(both) else np.nan,
-        "entry price within tol": float((rel(both.entry_px_port, both.entry_px_tv) <= price_tol).mean()) if len(both) else np.nan,
-        "exit price within tol": float((rel(both.exit_px_port, both.exit_px_tv) <= price_tol).mean()) if len(both) else np.nan,
+        "entry price within tol": float((rel(both.entry_px_port, both.entry_px_tv) <= price_tol).mean())
+        if len(both)
+        else np.nan,
+        "exit price within tol": float((rel(both.exit_px_port, both.exit_px_tv) <= price_tol).mean())
+        if len(both)
+        else np.nan,
     }
     return report, m[m["_merge"] != "both"]
 

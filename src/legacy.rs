@@ -31,7 +31,11 @@ pub fn signals(h: &[f64], l: &[f64], c: &[f64]) -> Out {
     let a_ma = sma(&a, LOOKBACK);
     let lr = log_returns(c);
     let hv = stdev(&lr, LOOKBACK);
-    let jumps: Vec<f64> = lr.iter().zip(&hv).map(|(r, s)| (r.abs() > 2.5 * s) as u8 as f64).collect();
+    let jumps: Vec<f64> = lr
+        .iter()
+        .zip(&hv)
+        .map(|(r, s)| (r.abs() > 2.5 * s) as u8 as f64)
+        .collect();
     let total = rolling_sum(&jumps, LOOKBACK);
 
     let mut out = Out {
@@ -96,7 +100,13 @@ pub fn signals(h: &[f64], l: &[f64], c: &[f64]) -> Out {
         let enough = k >= MIN_MATCHES.min(K);
         let bull_sig = enough && lo >= CONF && adj >= CONF && size > 0.0 && !suppressed;
         let bear_sig = enough && (100.0 - hi) >= CONF && adj_bear >= CONF && size > 0.0 && !suppressed;
-        out.dir[t] = if bull_sig { 1 } else if bear_sig { -1 } else { 0 };
+        out.dir[t] = if bull_sig {
+            1
+        } else if bear_sig {
+            -1
+        } else {
+            0
+        };
         out.stop_dist[t] = sd;
         out.size[t] = size.max(0.01) / 100.0;
     }

@@ -12,8 +12,16 @@ pub const END: u8 = 5;
 /// If stop and target are both touched inside one bar, the stop is assumed first (conservative).
 /// Returns (exit bar, exit price, reason).
 pub fn simulate(
-    o: &[f64], h: &[f64], l: &[f64], c: &[f64],
-    e: usize, d: f64, sd: f64, rr: f64, max_hold: usize, protect_entry: bool,
+    o: &[f64],
+    h: &[f64],
+    l: &[f64],
+    c: &[f64],
+    e: usize,
+    d: f64,
+    sd: f64,
+    rr: f64,
+    max_hold: usize,
+    protect_entry: bool,
 ) -> (usize, f64, u8) {
     let n = o.len();
     let entry = o[e];
@@ -23,16 +31,28 @@ pub fn simulate(
     for b in e..last {
         if b > e {
             // Gap through a level fills at the open.
-            if d * (o[b] - stop) <= 0.0 { return (b, o[b], STOP); }
-            if d * (o[b] - tp) >= 0.0 { return (b, o[b], TARGET); }
+            if d * (o[b] - stop) <= 0.0 {
+                return (b, o[b], STOP);
+            }
+            if d * (o[b] - tp) >= 0.0 {
+                return (b, o[b], TARGET);
+            }
         }
         if b > e || protect_entry {
             let (adv, fav) = if d > 0.0 { (l[b], h[b]) } else { (h[b], l[b]) };
-            if d * (adv - stop) <= 0.0 { return (b, stop, STOP); }
-            if d * (fav - tp) >= 0.0 { return (b, tp, TARGET); }
+            if d * (adv - stop) <= 0.0 {
+                return (b, stop, STOP);
+            }
+            if d * (fav - tp) >= 0.0 {
+                return (b, tp, TARGET);
+            }
         }
     }
-    if last < n { (last, o[last], TIME) } else { (n - 1, c[n - 1], END) }
+    if last < n {
+        (last, o[last], TIME)
+    } else {
+        (n - 1, c[n - 1], END)
+    }
 }
 
 /// Net R-multiple of a trade; `cost` is the fractional cost per side on notional.
@@ -66,8 +86,14 @@ pub struct Trades {
 /// Signals decided at the close of bar t are filled at the open of t+1, one position at a time.
 /// Returns the mark-to-market equity at every close (starting at 1.0) and the trade log.
 pub fn run(
-    o: &[f64], h: &[f64], l: &[f64], c: &[f64],
-    dir: &[i8], sd: &[f64], size: &[f64], p: &Params,
+    o: &[f64],
+    h: &[f64],
+    l: &[f64],
+    c: &[f64],
+    dir: &[i8],
+    sd: &[f64],
+    size: &[f64],
+    p: &Params,
 ) -> (Vec<f64>, Trades) {
     let n = c.len();
     let mut eq = vec![1.0; n];
@@ -84,7 +110,11 @@ pub fn run(
         let d = dir[t] as f64;
         let e = t + 1;
         let entry = o[e];
-        let mut qty = if p.risk_sizing { z * cash / s } else { z * cash / c[t] };
+        let mut qty = if p.risk_sizing {
+            z * cash / s
+        } else {
+            z * cash / c[t]
+        };
         qty = qty.min(p.lev_cap * cash / c[t]);
         let (mut x, mut px, mut why) = simulate(o, h, l, c, e, d, s, p.rr, p.max_hold, p.protect_entry);
         if p.close_on_opposite {
@@ -123,23 +153,38 @@ mod tests {
 
     #[test]
     fn stop_wins_when_both_levels_hit_in_one_bar() {
-        let (o, h, l, c) = bars([101.0, 104.0, 101.0, 101.0, 101.0], [99.0, 97.0, 99.0, 99.0, 99.0]);
-        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true), (1, 98.0, STOP));
+        let (o, h, l, c) = bars(
+            [101.0, 104.0, 101.0, 101.0, 101.0],
+            [99.0, 97.0, 99.0, 99.0, 99.0],
+        );
+        assert_eq!(
+            simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true),
+            (1, 98.0, STOP)
+        );
     }
 
     #[test]
     fn target_and_time_exits() {
         let (o, h, l, c) = bars([101.0, 101.0, 103.5, 101.0, 101.0], [99.0; 5]);
-        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true), (2, 103.0, TARGET));
+        assert_eq!(
+            simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true),
+            (2, 103.0, TARGET)
+        );
         let (o, h, l, c) = bars([101.0; 5], [99.0; 5]);
-        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true), (4, 100.0, TIME));
+        assert_eq!(
+            simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true),
+            (4, 100.0, TIME)
+        );
     }
 
     #[test]
     fn gap_through_stop_fills_at_open_and_unprotected_entry_bar_is_skipped() {
         let o = [100.0, 100.0, 95.0, 95.0, 95.0];
         let (h, l, c) = ([101.0; 5], [94.0; 5], [95.0; 5]);
-        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, false), (2, 95.0, STOP));
+        assert_eq!(
+            simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, false),
+            (2, 95.0, STOP)
+        );
     }
 
     #[test]

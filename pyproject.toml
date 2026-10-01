@@ -13,3 +13,18 @@ dependencies = ["numpy>=2.0", "pandas>=2.2", "scipy>=1.13", "matplotlib>=3.9"]
 module-name = "analogue_risk._core"
 python-source = "python"
 features = ["pyo3/extension-module"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E731", "E741", "E501"]  # E501: long string literals; code width is enforced by ruff format
+
+[tool.ruff.lint.per-file-ignores]
+# these set sys.path / the matplotlib backend before importing, by design
+"tests/*" = ["E402"]
+"results/dev/*" = ["E402"]
+"paper/make_tables.py" = ["E402"]
+"python/analogue_risk/figures.py" = ["E402"]

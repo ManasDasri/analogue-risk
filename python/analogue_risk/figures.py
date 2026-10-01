@@ -1,4 +1,5 @@
 """Paper figures: `python -m analogue_risk.figures`. Writes PDF + PNG to results/figures/."""
+
 import warnings
 
 import matplotlib
@@ -8,20 +9,36 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from . import data, model as M, vol as V  # noqa: E402
+from . import data  # noqa: E402
+from . import model as M
+from . import vol as V
 from .experiments import RES, split  # noqa: E402
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 OUT = RES / "figures"
-BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"   # categorical slots 1-3 (validated all-pairs)
+BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"  # categorical slots 1-3 (validated all-pairs)
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
-plt.rcParams.update({
-    "font.family": "DejaVu Sans", "font.size": 8.5, "axes.edgecolor": INK2, "axes.labelcolor": INK,
-    "axes.linewidth": 0.6, "xtick.color": INK2, "ytick.color": INK2, "axes.grid": True, "grid.color": GRID,
-    "grid.linewidth": 0.6, "axes.spines.top": False, "axes.spines.right": False, "legend.frameon": False,
-    "lines.linewidth": 1.4, "figure.dpi": 150, "savefig.bbox": "tight",
-})
+plt.rcParams.update(
+    {
+        "font.family": "DejaVu Sans",
+        "font.size": 8.5,
+        "axes.edgecolor": INK2,
+        "axes.labelcolor": INK,
+        "axes.linewidth": 0.6,
+        "xtick.color": INK2,
+        "ytick.color": INK2,
+        "axes.grid": True,
+        "grid.color": GRID,
+        "grid.linewidth": 0.6,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "legend.frameon": False,
+        "lines.linewidth": 1.4,
+        "figure.dpi": 150,
+        "savefig.bbox": "tight",
+    }
+)
 
 
 def save(fig, name):
@@ -33,8 +50,9 @@ def save(fig, name):
 
 
 def label_end(ax, x, y, text, color):
-    ax.annotate(text, (x[-1], y[-1]), xytext=(4, 0), textcoords="offset points", va="center",
-                color=INK, fontsize=8)
+    ax.annotate(
+        text, (x[-1], y[-1]), xytext=(4, 0), textcoords="offset points", va="center", color=INK, fontsize=8
+    )
     ax.plot([x[-1]], [y[-1]], "o", ms=3.5, color=color)
 
 
@@ -63,8 +81,14 @@ def fig_explain(d, when):
     xs_past = np.arange(-m + 1, 1)
     fig, ax = plt.subplots(figsize=(6.2, 3.0))
     for i, j in enumerate(js):
-        ax.plot(np.r_[xs_past, 1], np.r_[d.emb[j], d.target[j] - np.log(d.long[j])], color=INK2, alpha=0.35,
-                lw=0.9, label="10 nearest historical analogues" if i == 0 else None)
+        ax.plot(
+            np.r_[xs_past, 1],
+            np.r_[d.emb[j], d.target[j] - np.log(d.long[j])],
+            color=INK2,
+            alpha=0.35,
+            lw=0.9,
+            label="10 nearest historical analogues" if i == 0 else None,
+        )
     now = d.emb[t]
     fut = d.target[t] - np.log(d.long[t])
     f, _, _ = V.analogue(d)
@@ -73,10 +97,14 @@ def fig_explain(d, when):
     ax.plot([0, 1], [now[-1], pred], color=BLUE, lw=2, ls="--", label="analogue forecast")
     ax.plot([0, 1], [now[-1], fut], color=ORANGE, lw=2, marker="o", ms=4, label="realised")
     ax.set_xticks(np.r_[xs_past, 1])
-    ax.set_xticklabels([f"t{q*h:+d}" if q else "t" for q in xs_past] + [f"next {h}"])
+    ax.set_xticklabels([f"t{q * h:+d}" if q else "t" for q in xs_past] + [f"next {h}"])
     ax.set_ylabel("log variance vs. long-run level")
-    ax.set_title(f"{d.mkt.df.index[t]:%Y-%m-%d %H:%M} — why the model expects what it expects", fontsize=9,
-                 loc="left", color=INK)
+    ax.set_title(
+        f"{d.mkt.df.index[t]:%Y-%m-%d %H:%M} — why the model expects what it expects",
+        fontsize=9,
+        loc="left",
+        color=INK,
+    )
     ax.legend(loc="upper left", fontsize=7.5)
     save(fig, "fig_analogue_explanation")
 
@@ -110,9 +138,11 @@ def fig_overlay(series_list):
         F, _ = V.walk_forward(d, bounds)
         oos = slice(cal, len(d.r))
         idx = d.mkt.df.index[oos]
-        runs = {"Buy & hold": (V.buy_hold(d), INK2, "-", 1.0),
-                "Vol target: HAR": (V.overlay(d, F["HAR"], cal)[0], INK, "--", 0.9),
-                "Vol target: Analogue+HAR": (V.overlay(d, F["Analogue+HAR"], cal)[0], BLUE, "-", 1.3)}
+        runs = {
+            "Buy & hold": (V.buy_hold(d), INK2, "-", 1.0),
+            "Vol target: HAR": (V.overlay(d, F["HAR"], cal)[0], INK, "--", 0.9),
+            "Vol target: Analogue+HAR": (V.overlay(d, F["Analogue+HAR"], cal)[0], BLUE, "-", 1.3),
+        }
         for k, (r, col, ls, lw) in runs.items():
             eq = np.cumprod(1 + r[oos])
             ax.plot(idx, eq, color=col, ls=ls, lw=lw, label=k)
@@ -150,11 +180,16 @@ def fig_reliability(d, cal, bounds):
 
 def fig_hypotheses():
     """Per-series QLIKE ratios for the three volatility hypotheses, development vs confirmatory."""
-    sets = {"development": RES / "e2_volatility.csv", "confirmatory": RES / "confirmatory" / "e2_volatility.csv"}
+    sets = {
+        "development": RES / "e2_volatility.csv",
+        "confirmatory": RES / "confirmatory" / "e2_volatility.csv",
+    }
     abl = {"development": RES / "e3_ablation.csv", "confirmatory": RES / "confirmatory" / "e3_ablation.csv"}
-    panels = [("H2: Analogue+HAR vs HAR", lambda q, a: q["Analogue+HAR"] / q["HAR"]),
-              ("H3: Analogue vs HAR", lambda q, a: q["Analogue"] / q["HAR"]),
-              ("H4: kernel vs kNN analogue", lambda q, a: a)]
+    panels = [
+        ("H2: Analogue+HAR vs HAR", lambda q, a: q["Analogue+HAR"] / q["HAR"]),
+        ("H3: Analogue vs HAR", lambda q, a: q["Analogue"] / q["HAR"]),
+        ("H4: kernel vs kNN analogue", lambda q, a: a),
+    ]
     fig, axes = plt.subplots(1, 3, figsize=(6.8, 2.5), sharey=True)
     for ax, (title, f) in zip(axes, panels):
         for i, (name, col) in enumerate((("development", INK2), ("confirmatory", BLUE))):
