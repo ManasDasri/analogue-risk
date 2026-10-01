@@ -331,6 +331,74 @@ ID & Hypothesis & Statistic & $p$ & Statistic & $p$ & Holm $p$ \\
     )
 
 
+def robustness():
+    """Appendix tables: dividend-adjusted prices and Politis-White block lengths."""
+    adj = ROOT / "results" / "adjusted_etfs" / "comparison.csv"
+    if adj.exists():
+        t = pd.read_csv(adj)
+        keep = t[
+            t.result.isin(
+                [
+                    "QLIKE / HAR: Analogue+HAR",
+                    "Buy & hold: Sharpe",
+                    "Vol target: Analogue+HAR: Sharpe",
+                    "Buy & hold: max DD",
+                    "Vol target: Analogue+HAR: max DD",
+                ]
+            )
+        ]
+        rows = []
+        for _, r in keep.iterrows():
+            rows.append(
+                " & ".join(
+                    [esc(r.series), esc(r.result), fmt(r.unadjusted), fmt(r.adjusted), f"{r.change:+.3f}"]
+                )
+                + r"\\"
+            )
+        write(
+            "tab_rob_adjusted",
+            r"""\begin{tabular}{llrrr}
+\toprule
+Series & Quantity & Unadjusted & Adjusted & Change \\
+\midrule
+"""
+            + "\n".join(rows)
+            + "\n\\bottomrule\n\\end{tabular}\n",
+        )
+    blk = ROOT / "results" / "block_length_comparison.csv"
+    if blk.exists():
+        t = pd.read_csv(blk)
+        rows = []
+        for _, r in t.iterrows():
+            mcs = pd.notna(r["in 90% MCS: fixed blocks"])
+            fixed = r["in 90% MCS: fixed blocks"] if mcs else r["significant at 5%: fixed blocks"]
+            auto = r["in 90% MCS: Politis-White"] if mcs else r["significant at 5%: Politis-White"]
+            rows.append(
+                " & ".join(
+                    [
+                        esc(r.set),
+                        esc(r.test),
+                        str(int(r.cases)),
+                        "in MCS" if mcs else "significant",
+                        str(int(fixed)),
+                        str(int(auto)),
+                        str(int(r["verdicts changed"])),
+                    ]
+                )
+                + r"\\"
+            )
+        write(
+            "tab_rob_blocks",
+            r"""\begin{tabular}{llrlrrr}
+\toprule
+Set & Test & Cases & Verdict & Fixed & Politis--White & Changed \\
+\midrule
+"""
+            + "\n".join(rows)
+            + "\n\\bottomrule\n\\end{tabular}\n",
+        )
+
+
 def data_table():
     import sys
 
@@ -376,7 +444,18 @@ Set & Series & Ticker & Source & Freq. & Start & End & Bars & OOS bars \\
 
 
 if __name__ == "__main__":
-    for f in (direction, volatility, vol_summary, ablation, tails, var, overlay, hypotheses, data_table):
+    for f in (
+        direction,
+        volatility,
+        vol_summary,
+        ablation,
+        tails,
+        var,
+        overlay,
+        hypotheses,
+        robustness,
+        data_table,
+    ):
         f()
     (OUT / "macros.tex").write_text("".join(rf"\newcommand{{\{k}}}{{{v}}}" + "\n" for k, v in MACROS.items()))
     print("wrote", sorted(p.name for p in OUT.glob("*.tex")))

@@ -64,8 +64,8 @@ C3 & Permanent link to reproducible capsule & -- \\
 C4 & Legal code license & MIT \\
 C5 & Code versioning system used & git \\
 C6 & Software code languages, tools and services used & Rust, Python; PyO3, maturin, rayon; NumPy, SciPy, pandas, scikit-learn, Matplotlib \\
-C7 & Compilation requirements, operating environments and dependencies & Rust stable ($\geq$1.80), Python $\geq$3.12; Linux, macOS \\
-C8 & Link to developer documentation/manual & \url{https://github.com/ManasDasri/analogue-risk\#readme} \\
+C7 & Compilation requirements, operating environments and dependencies & Python $\geq$3.12 (prebuilt wheels: Linux, macOS, Windows); building from source needs Rust stable \\
+C8 & Link to developer documentation/manual & \url{https://github.com/ManasDasri/analogue-risk/blob/main/docs/api.md} \\
 C9 & Support email for questions & bl.sc.u4cse24229@bl.students.amrita.edu \\
 \bottomrule
 \end{tabular}
@@ -164,10 +164,19 @@ tests and the Fissler--Ziegel FZ0 loss \cite{fissler2016,patton2019}; probabilis
 Sharpe ratios \cite{bailey2012,bailey2014}; and a pre-registered hypothesis module with Holm
 correction \cite{holm1979}.
 
-\paragraph{Quality assurance} Fifteen tests cover causality (forecasts, labels and the legacy port
-are identical when all data after $t$ is removed), likelihoods against brute force, Hawkes
-parameter recovery, recovery of a planted signal versus a random walk, and the statistics. CI
-builds the extension and runs the tests on every push.
+\paragraph{Public API and data} \texttt{Analogue} exposes the engine with named, validated
+options and labelled outputs; \texttt{volatility\_forecast(prices, horizon)} is a one-call risk
+forecaster. Every series used in the study is pinned (last bar, row count, SHA-256), so re-runs
+reproduce the published numbers or warn that a source has changed; Binance data fall back to the
+public bulk archive where the API is geo-blocked.
+
+\paragraph{Quality assurance} Thirty-six Python and twelve Rust tests cover causality (forecasts,
+labels and the legacy port are identical when all data after $t$ is removed), likelihoods against
+brute force, Hawkes parameter recovery, recovery of a planted signal versus a random walk,
+known-answer checks of every backtest and statistic, and a regression test that reproduces the
+pre-registered hypothesis tables. CI runs them on Linux, macOS and Windows with Python 3.12 and 3.13
+and enforces formatting; tagged releases build wheels for all three platforms. An executable
+harness compares the legacy port with TradingView's own trade list.
 
 %% ------------------------------------------------------------------
 \section{Illustrative examples}
@@ -188,7 +197,10 @@ losses = {k: V.qlike(d.realised[ok], f[ok]) for k, f in F.items()}
 print(S.model_confidence_set(losses, B=1000, block=10))
 \end{lstlisting}
 
-Figure~\ref{fig:explain} shows the interpretability the engine exposes: for a given hour it
+Three executed tutorials accompany the code: volatility forecasting with
+explanations, VaR backtesting, and---to show the engine is not specific to finance---forecasting
+the Lorenz system with delay-embedding analogues, where it beats persistence by 72--94\% in RMSE
+depending on the horizon. Figure~\ref{fig:explain} shows the interpretability the engine exposes: for a given hour it
 returns the historical volatility paths closest to the present and what followed them.
 
 \begin{figure}[t]
