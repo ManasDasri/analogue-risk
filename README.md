@@ -34,6 +34,14 @@ F = model.forecast(embedding, targets, state=regime)  # mean/se per target, anal
 idx, w = model.neighbours(embedding, targets, state=regime)  # the analogues behind each forecast
 ```
 
+## Documentation
+
+- [API reference](docs/api.md)
+- Tutorials (executed notebooks):
+  [1. Forecasting volatility with analogues](docs/tutorials/01_volatility_forecast.ipynb) ·
+  [2. The method of analogues on the Lorenz system](docs/tutorials/02_lorenz_analogues.ipynb) ·
+  [3. One-day VaR with analogue-conditioned FHS](docs/tutorials/03_value_at_risk.ipynb)
+
 ## Results summary
 
 The study was **pre-registered**: after a development study on 9 assets, eight hypotheses, the
