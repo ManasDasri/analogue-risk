@@ -18,17 +18,28 @@ The architecture of the original is kept: analogue (k-nearest-neighbour) matchin
 volatility regime, a Poisson-family tail-risk gate, and Kelly-style sizing. Each part was made
 statistically sound, then tested against standard benchmarks.
 
-## Results summary (out-of-sample, 9 assets, 15 series × horizon)
+## Results summary
 
-| Question | Answer |
-|---|---|
-| Does analogue matching predict **direction**? | **No.** IC within ±0.06 on all 9 assets; Brier skill negative on 7/9. Neither the v1 port nor v2 shows significant skill on any asset (best deflated Sharpe 0.58; > 0.95 needed); they trail buy-and-hold on every asset with positive drift. `e1_*` |
-| Does aggregating to higher timeframes help (the v1 "low-pass filter" claim)? | Weakly suggestive only: BTC IC rises 0.004 → 0.006 → 0.02–0.035 from 15m to 4h, on too few independent observations to be significant. `e6_timeframe` |
-| Can analogues forecast **volatility**? | Standalone: 12% worse than HAR on average (QLIKE). **Combined with HAR:** in the 90% Model Confidence Set on 14/15 series (same as HAR and GARCH), significantly better than HAR on 2, worse on none. `e2_*` |
-| Does the v1 Poisson crash gate predict jumps? | **No** — worse than a constant forecast on 11/15 series. A Hawkes process beats it on 15/15, but a logistic on EWMA volatility beats both on 12/15. `e4_tail` |
-| Does risk forecasting pay economically? | Volatility-targeting cuts max drawdown on 8/9 assets (1–12 pp); Sharpe gains are not significant except PAXG (+0.40, p = 0.02). The Hawkes lock-out gate **significantly hurts** BTC and ETH. `e5_overlay` |
-| Which design choices matter? | Full history (+2%), exclusion zone (+2%); Markov regime mixture ≈ neutral; a Gaussian kernel beats kNN by ~5% (found post hoc, reported as ablation). `e3_ablation` |
-| Speed | 30k bars/s (capped history) on 10 cores; full-history O(n²) search: 200k bars in 90 s. `e7_speed` |
+The study was **pre-registered**: after a development study on 9 assets, eight hypotheses, the
+models, a list of 15 new assets and the analysis code were committed and tagged
+[`prereg-v1`](PREREGISTRATION.md) before any of those assets' data was downloaded.
+**All eight replicated** ([`results/confirmatory/hypotheses.md`](results/confirmatory/hypotheses.md);
+no deviations: [`DEVIATIONS.md`](results/confirmatory/DEVIATIONS.md)).
+
+| Question | Development (9 assets) | Confirmatory (15 new assets) |
+|---|---|---|
+| Does analogue matching predict **direction**? (H1) | No: mean IC −0.004, best deflated Sharpe 0.58 | **No**: mean IC +0.003 (p = 0.60), best deflated Sharpe 0.46 |
+| Analogue+HAR vs HAR for **volatility** (H2) | tie (median QLIKE ratio 1.012); in 90% MCS 14/15 | **tie** (1.001); in MCS 23/25 (HAR 24, GARCH 20) |
+| Analogue alone vs HAR (H3) | worse (1.103) | **worse** (1.087, Holm p < 0.001) |
+| Gaussian kernel vs kNN analogue (H4) | better (0.967), found post hoc | **better** (0.953, Holm p < 10⁻⁶) |
+| Gradient-boosted trees vs HAR (H5) | worse (1.52), in MCS 0/15 | **worse** (1.42), in MCS 2/25 |
+| Hawkes vs the v1 static-Poisson crash gate (H6) | better (log-loss ratio 0.93) | **better** (0.85); v1 Poisson is worse than a constant in 20/25; a logistic on EWMA volatility beats both |
+| Analogue/FHS blend vs FHS for **VaR/ES** (H7) | no difference | **no difference**; analogue VaR is as well calibrated as FHS, GARCH-t/FHS most accurate |
+| Volatility targeting vs buy & hold (H8) | drawdown lower on 9/9 | drawdown lower on **15/15** (median −5.6 pp); Sharpe slightly lower (median −0.015) |
+
+Also: the original "low-pass filter" (timeframe) claim gets only weak, non-significant support
+(`e6_timeframe`); the analogue engine runs at ~30k bars/s with capped history and 200k bars in
+~90 s with the full O(n²) search on 10 cores (`e7_speed`).
 
 ## Method
 
@@ -45,8 +56,9 @@ settings where the exclusion zone would force non-neighbours into the set.
   level; target = log mean squared return over the next *h* bars (h = 24 hourly, 5 and 22 daily).
 
 **Benchmarks**: EWMA (half-life selected per fold), GARCH(1,1) by MLE with variance targeting,
-HAR (Corsi 2009, log form), static Poisson (v1), Hawkes (exponential kernel, MLE), logistic on EWMA
-variance.
+HAR (Corsi 2009, log form), gradient-boosted trees (fixed hyperparameters), static Poisson (v1),
+Hawkes (exponential kernel, MLE), logistic on EWMA variance. For one-day VaR/ES: historical
+simulation, GARCH-N, GARCH-t, filtered historical simulation and analogue-conditioned FHS.
 
 **Protocol**: first 30% of each series = calibration, the rest = 5 walk-forward folds. Every fitted
 quantity uses only data observed before the fold. Model design was chosen on a validation slice
@@ -78,9 +90,13 @@ git clone https://github.com/ManasDasri/analogue-risk && cd analogue-risk
 curl https://sh.rustup.rs -sSf | sh             # Rust toolchain
 uv venv --python 3.12 && uv pip install maturin numpy pandas scipy matplotlib tabulate pytest
 .venv/bin/maturin develop --release              # builds the Rust core into sq._core
-.venv/bin/python -m pytest tests                 # 14 correctness tests
-.venv/bin/python -m sq.experiments               # all tables -> results/  (~35 min on an M4)
+.venv/bin/python -m pytest tests                 # 15 correctness tests
+.venv/bin/python -m sq.experiments               # development tables -> results/  (~35 min on an M4)
+.venv/bin/python -m sq.experiments --universe confirmatory --only e1 e2 e3 e4 e5 e8
+.venv/bin/python -m sq.hypotheses results/confirmatory   # pre-registered tests
 .venv/bin/python -m sq.figures                   # figures  -> results/figures/
+.venv/bin/python paper/make_tables.py            # LaTeX tables for the manuscripts
+cd paper/research && tectonic main.tex           # or any LaTeX engine; also paper/softwarex
 ```
 
 Tests cover: no look-ahead (forecasts, labels and the v1 port are identical on truncated data),
@@ -93,9 +109,13 @@ trade, planted-signal recovery vs. random walk, MCS behaviour, and the bootstrap
 src/            Rust core: analog.rs (engine), backtest.rs (simulator), hawkes.rs, garch.rs,
                 features.rs, legacy.rs (bar-for-bar port of the Pine v1 strategy), lib.rs (PyO3)
 python/sq/      data.py, model.py (direction + v1 + gates), vol.py (risk models, overlay),
-                stats.py, experiments.py, figures.py
+                var.py (VaR/ES), stats.py, experiments.py, hypotheses.py, figures.py
+paper/          research/ (journal manuscript), softwarex/ (software paper), refs.bib,
+                make_tables.py (every table generated from results/*.csv)
+PREREGISTRATION.md   frozen confirmatory plan (tag prereg-v1)
 tests/          test_core.py
-results/        e1..e7 tables (.md + .csv), figures/, config.json, dev/ (design study)
+results/        development e1..e8 tables (.md + .csv), confirmatory/, figures/, config.json,
+                dev/ (calibration-period design study)
 ```
 
 ## Limitations
@@ -109,7 +129,7 @@ results/        e1..e7 tables (.md + .csv), figures/, config.json, dev/ (design 
 
 ## Citation
 
-If you use this code, please cite the accompanying paper (in preparation) by M. G. Dasari,
+If you use this code, please cite the accompanying papers (in preparation) by M. G. Dasari,
 V. KVS and K. N. Meera, Amrita Vishwa Vidyapeetham, Bengaluru.
 
 ## License
