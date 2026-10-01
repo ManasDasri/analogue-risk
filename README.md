@@ -77,6 +77,12 @@ original). **Overlay**: long-only, no leverage, 5 bp per unit turnover, 0.1 reba
 
 ## Data
 
+**Pinned snapshot.** `python/sq/data_manifest.json` records, for every series in the paper, the
+last bar used, the row count and a SHA-256 of the cleaned data. Loaders truncate to that bar and
+verify the hash, so re-running the experiments later reproduces the published numbers; if a
+source has revised its history, a warning says so.
+
+
 Binance spot klines (BTC, ETH, PAXG as a gold proxy; hourly, plus BTC 15-minute) and Yahoo daily
 bars (S&P 500 from 1927, Nasdaq-100 ETF, GLD, TLT, EUR/USD, NIFTY 50), cached in `data/`. Yahoo
 bars are passed through a documented bad-tick filter (|r| > 8 × 20-day σ **and** reversed > 70% on
