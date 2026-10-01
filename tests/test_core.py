@@ -148,3 +148,17 @@ def test_stationary_bootstrap_indices():
     assert idx.shape == (20, 1000) and idx.min() >= 0 and idx.max() < 1000
     runs = (np.diff(idx, axis=1) == 1).mean()
     assert 0.85 < runs < 0.95  # continuation probability 1 - 1/block
+
+
+def test_neighbours_reproduce_forecast_means():
+    """The index/weight sets from neighbours() give exactly the means that forecast() reports."""
+    d = V.VolData(M.Market(synthetic()), SMALL_VOL)
+    vc = SMALL_VOL
+    y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
+    args = (d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, vc.lookback, vc.k, vc.k_min, vc.h, vc.regime, vc.warmup)
+    F = core.forecast(*args)
+    idx, w = core.neighbours(*args)
+    vals = np.where(idx >= 0, y[np.maximum(idx, 0), 0], 0.0)
+    ok = np.isfinite(F[:, 0])
+    np.testing.assert_allclose((w * vals).sum(1)[ok], F[ok, 0], rtol=1e-10, atol=1e-12)
+    assert np.allclose(w[ok].sum(1), 1.0)

@@ -1,0 +1,9 @@
+id,hypothesis,statistic,p,series,note,Holm p
+H1,Analogue direction forecasts have zero mean IC across assets (null expected),mean IC -0.0043; max DSR 0.58,0.5622013190750623,9,confirmed if p >= 0.05 and no DSR >= 0.95,1.0
+H2,Analogue+HAR QLIKE differs from HAR,median ratio 1.012,0.30279541015625,15,"in 90% MCS: Analogue+HAR 14, HAR 14",0.90838623046875
+H3,Analogue alone QLIKE differs from HAR,median ratio 1.103,0.00115966796875,15,,0.00579833984375
+H4,Gaussian-kernel analogue beats kNN analogue (one-sided),median ratio 0.967,3.0517578125e-05,15,,0.000244140625
+H5,Gradient boosting QLIKE differs from HAR,median ratio 1.522,6.103515625e-05,15,,0.0003662109375
+H6,Hawkes tail forecasts beat static Poisson (one-sided log-loss),median ratio 0.930,3.0517578125e-05,15,Logistic-EWMA vs Hawkes p = 6.1e-05,0.000244140625
+H7,Analogue-FHS blend FZ0 differs from FHS at alpha = 2.5%,median diff -0.0003,0.91015625,9,Analogue vs FHS p = 0.00391; vs GARCH-t p = 0.301,1.0
+H8,Volatility targeting (Analogue+HAR) reduces max drawdown vs buy & hold (one-sided sign test),9/9 improve,0.001953125,9,Sharpe difference p = 0.652,0.0078125

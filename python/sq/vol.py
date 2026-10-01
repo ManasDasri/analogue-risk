@@ -142,6 +142,27 @@ def har(d, fit):
     return X @ beta
 
 
+def gbm(d, fit, seed=0):
+    """Gradient-boosted trees on the union of HAR inputs, the volatility-shape embedding, the regime
+    state and the long-run level (fixed, untuned hyperparameters)."""
+    from sklearn.ensemble import HistGradientBoostingRegressor
+
+    fl = FLOOR * d.long
+    X = np.column_stack([np.log(np.maximum(_roll_mean(d.r2, L), fl)) for L in d.vc.har]
+                        + [d.emb, d.state.astype(float), np.log(d.long)])
+    rows = np.arange(len(d.r))[fit]
+    ok = rows[np.isfinite(X[rows]).all(1) & np.isfinite(d.target[rows])]
+    if len(ok) > 60000:
+        ok = np.sort(np.random.default_rng(seed).choice(ok, 60000, replace=False))
+    model = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, max_leaf_nodes=31,
+                                          min_samples_leaf=50, random_state=seed)
+    model.fit(X[ok], d.target[ok])
+    out = np.full(len(d.r), np.nan)
+    good = np.isfinite(X).all(1)
+    out[good] = model.predict(X[good])
+    return out
+
+
 def qlike(realised, log_f):
     ratio = realised / np.exp(log_f)
     return ratio - np.log(ratio) - 1
@@ -151,7 +172,7 @@ def walk_forward(d, bounds, halflives=(5, 10, 20, 50, 100, 200)):
     """OOS log-variance forecasts from every model, refitted per fold. Log models (HAR, analogue)
     are bias-corrected to the variance scale with the mean exp(residual) of the fit window."""
     n = len(d.r)
-    names = ["EWMA", "GARCH", "HAR", "Analogue", "Analogue+HAR"]
+    names = ["EWMA", "GARCH", "HAR", "GBM", "Analogue", "Analogue+HAR"]
     out = {k: np.full(n, np.nan) for k in names}
     ana, _, _ = analogue(d)
     ew = {hl: ewma(d, hl) for hl in halflives}
@@ -165,8 +186,9 @@ def walk_forward(d, bounds, halflives=(5, 10, 20, 50, 100, 200)):
         best_hl = min(halflives, key=lambda hl: np.nanmean(qlike(d.realised[v], ew[hl][v])))
         g, ab = garch(d, fit)
         hr = har(d, fit)
-        f = {"EWMA": ew[best_hl], "GARCH": g, "HAR": hr, "Analogue": ana, "Analogue+HAR": (ana + hr) / 2}
-        for k in ("HAR", "Analogue", "Analogue+HAR"):
+        f = {"EWMA": ew[best_hl], "GARCH": g, "HAR": hr, "GBM": gbm(d, fit), "Analogue": ana,
+             "Analogue+HAR": (ana + hr) / 2}
+        for k in ("HAR", "GBM", "Analogue", "Analogue+HAR"):
             vv = v & np.isfinite(f[k])
             f[k] = f[k] + np.log(np.mean(np.exp(d.target[vv] - f[k][vv])))
         for k in names:
