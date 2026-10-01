@@ -22,6 +22,9 @@ pub struct Params {
     pub warmup: usize,
     /// > 0: Gaussian-kernel weights over all candidates (Nadaraya-Watson) instead of k nearest.
     pub bandwidth: f64,
+    /// Kernel mode: if > 0, the effective sample size treats each block of this many consecutive
+    /// anchors as one observation (their outcome windows overlap), instead of every anchor.
+    pub kernel_block: usize,
 }
 
 /// Row-major n x m embedding; NaN rows where the window is incomplete.
@@ -267,6 +270,9 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
     let mut sw2 = [0.0f64; 2];
     let mut sy = vec![[0.0f64; 2]; p];
     let mut syy = vec![[0.0f64; 2]; p];
+    // Block accumulators for the overlap-aware effective sample size (candidates are in time order).
+    let mut block = [usize::MAX; 2];
+    let mut bsum = [0.0f64; 2];
     for &(d, j) in cand {
         let z = (d - dmin) * inv;
         if z > 30.0 {
@@ -275,12 +281,25 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
         let s = if prm.regime { state[j] as usize } else { 0 };
         let w = (-z).exp();
         sw[s] += w;
-        sw2[s] += w * w;
+        if prm.kernel_block > 0 {
+            let b = j / prm.kernel_block;
+            if b != block[s] {
+                sw2[s] += bsum[s] * bsum[s];
+                bsum[s] = 0.0;
+                block[s] = b;
+            }
+            bsum[s] += w;
+        } else {
+            sw2[s] += w * w;
+        }
         for c in 0..p {
             let v = y[j * p + c];
             sy[c][s] += w * v;
             syy[c][s] += w * v * v;
         }
+    }
+    for s in 0..2 {
+        sw2[s] += bsum[s] * bsum[s]; // flush the last block (zero when kernel_block == 0)
     }
     let neff = [sw[0] * sw[0] / sw2[0].max(1e-300), sw[1] * sw[1] / sw2[1].max(1e-300)];
     let pi1 = if prm.regime { markov_pi_high(state, pre, t, prm.lookback, prm.h) } else { 0.0 };
@@ -314,4 +333,34 @@ fn kernel(cand: &[(f64, usize)], state: &[u8], pre: &[[u32; 4]], y: &[f64], p: u
     out[2 * p] = neff[0] + neff[1];
     out[2 * p + 1] = pi1;
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn markov_forecast_closed_form() {
+        let state = [0u8, 0, 1, 1, 0, 1, 1, 1, 0, 0];
+        let pre = transition_prefix(&state);
+        // transitions over bars 1..=9: 0->0 x2, 0->1 x2, 1->1 x3, 1->0 x2
+        let (a, b): (f64, f64) = (2.0 / 4.0, 2.0 / 5.0);
+        let (q, lam) = (a / (a + b), 1.0 - a - b);
+        let expect: f64 = (1..=3).map(|k| q + (0.0 - q) * lam.powi(k)).sum::<f64>() / 3.0;
+        assert!((markov_pi_high(&state, &pre, 9, 100, 3) - expect).abs() < 1e-12);
+    }
+
+    #[test]
+    fn exclusion_zone_and_causality_in_selection() {
+        // 1-D embedding equal to the bar index: the nearest past anchors are the most recent ones
+        let n = 60;
+        let emb: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let y = vec![1.0; n];
+        let state = vec![0u8; n];
+        let prm = Params { w: 0, delay: 5, h: 5, lookback: 1000, k: 4, k_min: 2, excl: 5, regime: false,
+                           warmup: 0, bandwidth: 0.0, kernel_block: 0 };
+        let (idx, _) = neighbours(&emb, 1, &state, &y, 1, &prm);
+        let row: Vec<i64> = idx[50 * 8..50 * 8 + 4].to_vec();
+        assert_eq!(row, vec![45, 40, 35, 30]); // newest allowed anchor is t - delay; spaced >= excl
+    }
 }

@@ -75,7 +75,44 @@ Sharpe differences.
 stop-first on ambiguous bars, gaps fill at the open, 5 bp per side (1 bp shown for v1 as in the
 original). **Overlay**: long-only, no leverage, 5 bp per unit turnover, 0.1 rebalance band.
 
+## Robustness: dividend-adjusted prices
+
+The main study uses Yahoo's unadjusted prices. For the four distribution-paying funds (QQQ, TLT,
+IWM, EEM; Yahoo's price indices have no adjusted series)
+`python -m sq.experiments --universe adjusted_etfs --only e2 e5` reruns the volatility and overlay
+experiments on dividend-adjusted prices ([`results/adjusted_etfs/comparison.md`](results/adjusted_etfs/comparison.md)).
+Volatility results barely move (QLIKE ratios change by at most 0.026). Sharpe ratio levels rise
+for both buy-and-hold and volatility targeting, most for Treasuries (+0.20, coupons), but every
+comparison keeps its sign: volatility targeting still cuts drawdowns, lowers Sharpe slightly for
+TLT, IWM and EEM, and raises it for QQQ.
+
+## Robustness: bootstrap block lengths
+
+The model confidence sets and Sharpe tests use fixed bootstrap block lengths (2h; 10 days for
+VaR). `--auto-block` replaces them with Politis-White (2004) estimates
+([`results/block_length_comparison.md`](results/block_length_comparison.md)). No headline claim
+moves: Analogue+HAR stays in the 90% MCS for 14/15 development and 23/25 confirmatory series, HAR
+for 14/15 and 24/25. The automatic lengths are slightly more conservative, admitting a few more
+models to some confidence sets (confirmatory: analogue alone 12 -> 14, GARCH 20 -> 22); 13 of 432
+VaR/ES MCS verdicts and 3 of 168 overlay Sharpe-test verdicts change.
+
+## Recommended settings for new work
+
+The paper's results use the pre-registered kNN analogue (`vol.HOURLY`, `vol.DAILY_W`,
+`vol.DAILY_M`), which stay unchanged so every number reproduces. The Gaussian kernel won the
+pre-registered comparison with kNN (H4), so new work should start from `vol.RECOMMENDED`
+(`bandwidth=0.6`, `kernel_block=True`). `kernel_block` treats each block of `h` consecutive anchors
+as one observation when computing the effective sample size, because their outcome windows overlap;
+it changes standard errors and the minimum-sample gate, not the forecast mean.
+
 ## Data
+
+**Binance access.** Binance's REST API refuses some regions (e.g. HTTP 451 in the US). The loader
+then falls back to the public bulk archive at `data.binance.vision` (or set
+`SQ_BINANCE_SOURCE=archive`). The two official sources agree on 99.94% of bars but not all (the
+archive contains a misaligned window during a February 2018 outage and a few bars differing around
+exchange maintenance), so an archive-built series fails the snapshot check below and results can
+differ marginally from the paper; the loader warns when this happens.
 
 **Pinned snapshot.** `python/sq/data_manifest.json` records, for every series in the paper, the
 last bar used, the row count and a SHA-256 of the cleaned data. Loaders truncate to that bar and
@@ -108,6 +145,18 @@ cd paper/research && tectonic main.tex           # or any LaTeX engine; also pap
 Tests cover: no look-ahead (forecasts, labels and the v1 port are identical on truncated data),
 Hawkes and GARCH likelihoods against brute force, Hawkes parameter recovery, label = executed
 trade, planted-signal recovery vs. random walk, MCS behaviour, and the bootstrap.
+
+## Checking the Pine port against TradingView
+
+The Rust port of the original strategy (`src/legacy.rs`) can be checked against TradingView's own
+backtest. In TradingView, add `codes/script.pine` (default inputs) to `BINANCE:BTCUSDT`, 1h, set
+the chart timezone to UTC, open *Strategy Tester -> List of Trades*, export the CSV, save it as
+`tests/data/tradingview_btcusdt_1h.csv`, and run
+
+```bash
+.venv/bin/python -m sq.pine_parity tests/data/tradingview_btcusdt_1h.csv   # report
+.venv/bin/python -m pytest tests -k tradingview                            # >= 95% of trades must match
+```
 
 ## Layout
 

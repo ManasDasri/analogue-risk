@@ -179,3 +179,73 @@ def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
     changed.to_csv(tmp_path / "x.csv.gz")
     with pytest.warns(UserWarning, match="differs from the pinned snapshot"):
         D._cached("x", None)
+
+
+def test_klines_timestamps_ms_and_us():
+    from sq import data as D
+    rows = [[1551398400000, "1", "2", "0.5", "1.5", "10"],          # 2019, milliseconds
+            [1740787200000000, "1", "2", "0.5", "1.5", "10"]]       # 2025, microseconds (archive)
+    df = D._klines_frame(rows)
+    assert list(df.index) == [pd.Timestamp("2019-03-01"), pd.Timestamp("2025-03-01")]
+
+
+def test_binance_falls_back_to_archive_when_geo_blocked(tmp_path, monkeypatch):
+    import urllib.error
+    from sq import data as D
+    monkeypatch.setattr(D, "DATA", tmp_path)
+
+    def blocked(*a):
+        raise urllib.error.HTTPError("u", 451, "restricted location", None, None)
+
+    archive = D._klines_frame([[1551398400000 + 3600000 * i, "1", "2", "0.5", "1.5", "10"] for i in range(5)])
+    monkeypatch.setattr(D, "_binance_api", blocked)
+    monkeypatch.setattr(D, "_binance_archive", lambda *a: archive)
+    with pytest.warns(UserWarning, match="HTTP 451"):
+        out = D.binance("TESTUSDT", "1h")
+    assert len(out) == 4  # unpinned series drop the still-forming final bar
+
+
+def _as_tradingview_csv(trades, path, tz):
+    """Write trades the way TradingView's 'List of Trades' export does (exit row first, local time)."""
+    rows = []
+    for i, t in enumerate(trades.itertuples(), 1):
+        side = "long" if t.dir == 1 else "short"
+        loc = lambda ts: ts.tz_localize("UTC").tz_convert(tz).strftime("%Y-%m-%d %H:%M")
+        rows.append({"Trade #": i, "Type": f"Exit {side}", "Signal": "x", "Date/Time": loc(t.exit_time),
+                     "Price USDT": t.exit_px, "Contracts": 1})
+        rows.append({"Trade #": i, "Type": f"Entry {side}", "Signal": "KNN", "Date/Time": loc(t.entry_time),
+                     "Price USDT": t.entry_px, "Contracts": 1})
+    pd.DataFrame(rows).to_csv(path, index=False)
+
+
+def test_pine_parity_harness_self_consistent(tmp_path):
+    from sq import pine_parity as P
+    ours = P.port_trades(M.Market(synthetic(6000)))
+    assert len(ours) > 10
+    _as_tradingview_csv(ours, tmp_path / "tv.csv", "Asia/Kolkata")
+    report, unmatched = P.compare(P.read_tradingview(tmp_path / "tv.csv", "Asia/Kolkata"), ours)
+    assert report["match rate (of TradingView)"] == 1.0 and report["same exit bar"] == 1.0
+    assert len(unmatched) == 0
+
+
+TV_EXPORT = Path(__file__).parent / "data" / "tradingview_btcusdt_1h.csv"
+
+
+@pytest.mark.skipif(not TV_EXPORT.exists(), reason="export the original strategy's trade list from TradingView")
+def test_pine_port_matches_tradingview():
+    from sq import data as D, pine_parity as P
+    report, _ = P.compare(P.read_tradingview(TV_EXPORT, "UTC"), P.port_trades(M.Market(D.binance("BTCUSDT", "1h"))))
+    assert report["match rate (of TradingView)"] >= 0.95
+
+
+def test_kernel_block_effective_sample_size():
+    d = V.VolData(M.Market(synthetic(8000)), SMALL_VOL)
+    vc = SMALL_VOL
+    y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
+    args = (d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, vc.lookback, vc.k, vc.k_min, vc.h, vc.regime, vc.warmup, 0.6)
+    off, one, blk = core.forecast(*args, 0), core.forecast(*args, 1), core.forecast(*args, vc.h)
+    np.testing.assert_array_equal(off, one)                     # blocks of one anchor = per-anchor Kish
+    ok = np.isfinite(blk[:, 0]) & np.isfinite(off[:, 0])
+    np.testing.assert_allclose(blk[ok, :2], off[ok, :2])         # means unchanged
+    assert (blk[ok, 2:4] >= off[ok, 2:4] - 1e-15).all()          # standard errors never smaller
+    assert np.median(blk[ok, 4] / off[ok, 4]) < 0.5              # far fewer effective observations

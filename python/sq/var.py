@@ -47,7 +47,7 @@ def weighted_tail(vals, w, alpha):
     k = np.argmax(cw >= alpha * cw[:, -1:], axis=1)
     q = v[np.arange(len(v)), k]
     below = (np.arange(v.shape[1])[None, :] <= k[:, None]) & np.isfinite(v)
-    es = (np.where(below, v * ww, 0).sum(1)) / np.where(below, ww, 0).sum(1)
+    es = np.where(below, np.where(np.isfinite(v), v, 0.0) * ww, 0).sum(1) / np.where(below, ww, 0).sum(1)
     empty = cw[:, -1] <= 0
     q[empty], es[empty] = np.nan, np.nan
     return q, es
@@ -77,16 +77,8 @@ def forecasts(d, cfg, bounds):
     idx, w = core.neighbours(d.emb, d.state, y, vc.m * vc.seg, 1, vc.seg, vc.lookback, vc.k, vc.k_min,
                              1, vc.regime, vc.warmup)
 
-    # historical simulation (no fitting)
-    from numpy.lib.stride_tricks import sliding_window_view
-    win = sliding_window_view(r, cfg.hs_window)                       # row i covers r[i : i+W]
-    hs = {}
-    for a in ALPHAS:
-        q = np.quantile(win, a, axis=1)
-        es = np.array([row[row <= qq].mean() for row, qq in zip(win, q)])
-        v, e = np.full(n, np.nan), np.full(n, np.nan)
-        v[cfg.hs_window - 1:], e[cfg.hs_window - 1:] = q, es
-        hs[a] = (v, e)
+    # historical simulation (no fitting): rolling window of the last hs_window returns
+    hs = {a: core.rolling_tail(r, cfg.hs_window, a) for a in ALPHAS}
 
     for a_fold, b_fold in bounds:
         fit = d.fit_rows(a_fold)
@@ -110,13 +102,9 @@ def forecasts(d, cfg, bounds):
             out["GARCH-t"][a][1][sl] = sig_next[sl] * s * es_t
             out["HS"][a][0][sl], out["HS"][a][1][sl] = hs[a][0][sl], hs[a][1][sl]
             # FHS: all standardised residuals observed up to t (expanding)
-            zz = z[vc.warmup // 2: b_fold]
-            for t in range(a_fold, b_fold):  # ponytail: O(n * window) quantiles; fine for daily data
-                past = zz[: t - vc.warmup // 2 + 1]
-                past = past[np.isfinite(past)]
-                qf = np.quantile(past, a)
-                out["FHS"][a][0][t] = sig_next[t] * qf
-                out["FHS"][a][1][t] = sig_next[t] * past[past <= qf].mean()
+            qf, ef = core.expanding_tail(z, vc.warmup // 2, a)
+            out["FHS"][a][0][sl] = sig_next[sl] * qf[sl]
+            out["FHS"][a][1][sl] = sig_next[sl] * ef[sl]
             # Analogue: residuals that followed the analogue states
             vals = np.where(idx[sl] >= 0, z_next[np.maximum(idx[sl], 0)], np.nan)
             ww = np.where(np.isfinite(vals), w[sl], 0.0)

@@ -111,3 +111,40 @@ pub fn run(
     eq[n - 1] = cash;
     (eq, tr)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Five bars; long entry at the open of bar 1 (price 100), stop distance 2, target 3.
+    fn bars(h: [f64; 5], l: [f64; 5]) -> ([f64; 5], [f64; 5], [f64; 5], [f64; 5]) {
+        ([100.0; 5], h, l, [100.0; 5])
+    }
+
+    #[test]
+    fn stop_wins_when_both_levels_hit_in_one_bar() {
+        let (o, h, l, c) = bars([101.0, 104.0, 101.0, 101.0, 101.0], [99.0, 97.0, 99.0, 99.0, 99.0]);
+        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true), (1, 98.0, STOP));
+    }
+
+    #[test]
+    fn target_and_time_exits() {
+        let (o, h, l, c) = bars([101.0, 101.0, 103.5, 101.0, 101.0], [99.0; 5]);
+        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true), (2, 103.0, TARGET));
+        let (o, h, l, c) = bars([101.0; 5], [99.0; 5]);
+        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, true), (4, 100.0, TIME));
+    }
+
+    #[test]
+    fn gap_through_stop_fills_at_open_and_unprotected_entry_bar_is_skipped() {
+        let o = [100.0, 100.0, 95.0, 95.0, 95.0];
+        let (h, l, c) = ([101.0; 5], [94.0; 5], [95.0; 5]);
+        assert_eq!(simulate(&o, &h, &l, &c, 1, 1.0, 2.0, 1.5, 3, false), (2, 95.0, STOP));
+    }
+
+    #[test]
+    fn r_multiple_includes_costs() {
+        assert!((r_multiple(1.0, 100.0, 103.0, 2.0, 0.0) - 1.5).abs() < 1e-12);
+        assert!((r_multiple(-1.0, 100.0, 98.0, 2.0, 0.001) - (2.0 - 0.198) / 2.0).abs() < 1e-12);
+    }
+}

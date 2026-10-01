@@ -25,6 +25,8 @@ jobs:
           maturin develop --release
       - name: Clippy
         run: cargo clippy --release -- -D clippy::correctness
+      - name: Rust unit tests
+        run: PYO3_PYTHON=$PWD/.venv/bin/python cargo test --release
       - name: Tests
         run: |
           . .venv/bin/activate

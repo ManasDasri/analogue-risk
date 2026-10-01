@@ -4,7 +4,7 @@ Target at bar t: log of the mean squared log return over bars t+1..t+h (realised
 Every forecaster is walk-forward: parameters for fold [a, b) are fitted only on rows whose
 targets are fully observed before a (t + h < a).
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from scipy.optimize import minimize
@@ -22,6 +22,7 @@ class VolConfig:
     long_halflife: float = 500
     lookback: int = 10**9     # candidate history for analogues (default: all past bars)
     bandwidth: float = 0.0    # > 0: Gaussian-kernel weights over all candidates; 0: k nearest
+    kernel_block: bool = False  # kernel mode: overlap-aware effective sample size (blocks of h bars)
     min_hist: int = 8760      # bars of history before the first forecast
     k: int = 20
     k_min: int = 5
@@ -49,6 +50,12 @@ class VolConfig:
 HOURLY = VolConfig()
 DAILY_W = VolConfig(h=5, min_hist=1000, regime_len=500, long_halflife=250, har=(1, 5, 22))
 DAILY_M = VolConfig(h=22, min_hist=2000, k=10, regime_len=500, long_halflife=250, har=(1, 5, 22))
+
+# Recommended for new work: the Gaussian kernel won the pre-registered comparison with kNN (H4);
+# kernel_block makes its effective sample size account for overlapping outcome windows. The
+# presets above are kept unchanged so the published results reproduce exactly.
+RECOMMENDED = {name: replace(cfg, bandwidth=0.6, kernel_block=True)
+               for name, cfg in (("hourly", HOURLY), ("daily_w", DAILY_W), ("daily_m", DAILY_M))}
 
 
 def _roll_mean(x, n):
@@ -100,10 +107,11 @@ def analogue(d, vc=None, **over):
     """Returns (log-variance forecast, tail probability, forecast output) for every bar."""
     vc = vc or d.vc
     prm = dict(k=vc.k, k_min=vc.k_min, excl=vc.h if vc.excl is None else vc.excl, regime=vc.regime,
-               lookback=vc.lookback, bandwidth=vc.bandwidth) | over
+               lookback=vc.lookback, bandwidth=vc.bandwidth, kernel_block=vc.kernel_block) | over
     y = np.ascontiguousarray(np.column_stack([d.target - np.log(d.long), d.tail]))
     F = core.forecast(d.emb, d.state, y, vc.m * vc.seg, vc.h, vc.h, prm["lookback"], prm["k"],
-                      vc.k_min, prm["excl"], prm["regime"], vc.warmup, prm["bandwidth"])
+                      vc.k_min, prm["excl"], prm["regime"], vc.warmup, prm["bandwidth"],
+                      vc.h if prm["kernel_block"] else 0)
     return F[:, 0] + np.log(d.long), F[:, 1], F
 
 

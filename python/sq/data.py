@@ -5,7 +5,11 @@ the cleaned data). Loading a pinned series truncates it to that bar and checks t
 fresh download reproduces the published data exactly or warns that the source has changed.
 """
 import hashlib
+import io
 import json
+import os
+import urllib.error
+import zipfile
 import warnings
 import time
 import urllib.request
@@ -17,6 +21,17 @@ import pandas as pd
 DATA = Path(__file__).resolve().parents[2] / "data"
 MANIFEST = json.loads((Path(__file__).with_name("data_manifest.json")).read_text())
 COLS = ["open", "high", "low", "close", "volume"]
+
+
+def _get_bytes(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.read()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
 
 
 def _get(url):
@@ -40,8 +55,10 @@ def _cached(name, fetch):
     path = DATA / f"{name}.csv.gz"
     if not path.exists():
         DATA.mkdir(exist_ok=True)
-        fetch().to_csv(path)
-    df = _clean(pd.read_csv(path, index_col=0, parse_dates=True))
+        fetch().to_csv(path, date_format="%Y-%m-%d %H:%M:%S")
+    df = pd.read_csv(path, index_col=0)
+    df.index = pd.to_datetime(df.index, format="ISO8601")
+    df = _clean(df)
     pin = MANIFEST.get(name)
     if pin is None:
         return df.iloc[:-1]  # unpinned: the final bar may still be forming
@@ -60,25 +77,71 @@ def _clean(df):
 
 
 def binance(symbol, interval="1h", start="2018-01-01"):
+    """Binance spot klines. Uses the REST API, or the public bulk archive (data.binance.vision) when
+    the API is unreachable or geo-blocked (HTTP 451/403), or when SQ_BINANCE_SOURCE=archive."""
     def fetch():
-        rows, t = [], int(pd.Timestamp(start, tz="UTC").timestamp() * 1000)
-        while True:
-            batch = _get(f"https://api.binance.com/api/v3/klines?symbol={symbol}"
-                         f"&interval={interval}&startTime={t}&limit=1000")
-            if not batch:
-                break
-            rows += batch
-            t = batch[-1][0] + 1
-            if len(batch) < 1000:
-                break
-        df = pd.DataFrame([r[:6] for r in rows], columns=["time"] + COLS)
-        df.index = pd.to_datetime(df.pop("time"), unit="ms")
-        return df
+        if os.environ.get("SQ_BINANCE_SOURCE") != "archive":
+            try:
+                return _binance_api(symbol, interval, start)
+            except urllib.error.HTTPError as e:
+                if e.code not in (403, 451):
+                    raise
+                warnings.warn(f"Binance API refused the request (HTTP {e.code}); using data.binance.vision")
+        return _binance_archive(symbol, interval, start)
 
     return _cached(f"binance_{symbol}_{interval}", fetch)
 
 
-def yahoo(symbol, start="1990-01-01"):
+def _klines_frame(rows):
+    df = pd.DataFrame([r[:6] for r in rows], columns=["time"] + COLS)
+    t = df.pop("time").astype("int64")
+    t = t.where(t < 10**14, t // 1000)  # the archive switched to microseconds in 2025
+    df.index = pd.to_datetime(t, unit="ms").astype("datetime64[ns]").rename("time")
+    return df.astype(float)
+
+
+def _binance_api(symbol, interval, start):
+    rows, t = [], int(pd.Timestamp(start, tz="UTC").timestamp() * 1000)
+    while True:
+        batch = _get(f"https://api.binance.com/api/v3/klines?symbol={symbol}"
+                     f"&interval={interval}&startTime={t}&limit=1000")
+        if not batch:
+            break
+        rows += batch
+        t = batch[-1][0] + 1
+        if len(batch) < 1000:
+            break
+    return _klines_frame(rows)
+
+
+def _binance_archive(symbol, interval, start):
+    """Monthly zip files; months not yet archived are assembled from daily files."""
+    base = "https://data.binance.vision/data/spot"
+    rows = []
+
+    def read(blob):
+        with zipfile.ZipFile(io.BytesIO(blob)) as z:
+            text = z.read(z.namelist()[0]).decode()
+        return [line.split(",") for line in text.splitlines() if line and line[0].isdigit()]
+
+    today = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
+    for month in pd.period_range(pd.Timestamp(start), today, freq="M"):
+        blob = _get_bytes(f"{base}/monthly/klines/{symbol}/{interval}/{symbol}-{interval}-{month}.zip")
+        if blob is not None:
+            rows += read(blob)
+            continue
+        for day in pd.date_range(month.start_time, min(month.end_time, today), freq="D"):
+            blob = _get_bytes(f"{base}/daily/klines/{symbol}/{interval}/{symbol}-{interval}-{day:%Y-%m-%d}.zip")
+            if blob is not None:
+                rows += read(blob)
+    return _klines_frame(rows)
+
+
+def yahoo(symbol, start="1990-01-01", adjusted=False):
+    """Yahoo daily bars. adjusted=True rescales open/high/low/close by adjclose/close so returns
+    include distributions (dividends); it only matters for funds, since Yahoo's price indices have
+    no adjusted series. Note: Yahoo rescales all past adjusted prices after every new dividend,
+    so an adjusted snapshot is less stable than an unadjusted one."""
     def fetch():
         p1 = int(pd.Timestamp(start).timestamp())
         p2 = int(time.time())
@@ -86,9 +149,13 @@ def yahoo(symbol, start="1990-01-01"):
                  f"?period1={p1}&period2={p2}&interval=1d")["chart"]["result"][0]
         q = j["indicators"]["quote"][0]
         df = pd.DataFrame({k: q[k] for k in COLS}, index=pd.to_datetime(j["timestamp"], unit="s"))
+        if adjusted:
+            f = pd.Series(j["indicators"]["adjclose"][0]["adjclose"], index=df.index, dtype=float) / df.close
+            df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]].mul(f, axis=0)
         return df
 
-    return drop_bad_ticks(_cached(f"yahoo_{symbol.replace('^', '').replace('=', '')}_1d", fetch))
+    name = f"yahoo_{symbol.replace('^', '').replace('=', '')}_1d" + ("_adj" if adjusted else "")
+    return drop_bad_ticks(_cached(name, fetch))
 
 
 def drop_bad_ticks(df, k=8.0, reversal=0.7, window=20):

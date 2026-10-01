@@ -1,0 +1,7 @@
+set,test,cases,in 90% MCS: fixed blocks,in 90% MCS: Politis-White,verdicts changed,significant at 5%: fixed blocks,significant at 5%: Politis-White
+Development,Volatility MCS (e2),90,61.0,61.0,0,,
+Development,VaR/ES MCS (e8),162,135.0,135.0,2,,
+Development,Overlay Sharpe test (e5),63,,,0,4.0,4.0
+Confirmatory,Volatility MCS (e2),150,99.0,105.0,6,,
+Confirmatory,VaR/ES MCS (e8),270,211.0,220.0,11,,
+Confirmatory,Overlay Sharpe test (e5),105,,,3,14.0,13.0

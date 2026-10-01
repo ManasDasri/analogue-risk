@@ -4,6 +4,7 @@ mod features;
 mod garch;
 mod hawkes;
 mod legacy;
+mod tails;
 
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
@@ -54,16 +55,16 @@ fn labels<'py>(
 /// Analogue forecast of each column of `y` (n x p). Output n x (2p+2): means, standard errors,
 /// analogues used, P(high-vol regime over the horizon).
 #[pyfunction]
-#[pyo3(signature = (emb, state, y, w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth=0.0))]
+#[pyo3(signature = (emb, state, y, w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth=0.0, kernel_block=0))]
 #[allow(clippy::too_many_arguments)]
 fn forecast<'py>(
     py: Python<'py>, emb: PyReadonlyArray2<f64>, state: PyReadonlyArray1<u8>, y: PyReadonlyArray2<f64>,
     w: usize, delay: usize, h: usize, lookback: usize, k: usize, k_min: usize, excl: usize, regime: bool,
-    warmup: usize, bandwidth: f64,
+    warmup: usize, bandwidth: f64, kernel_block: usize,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let (m, p) = (emb.as_array().ncols(), y.as_array().ncols());
     let (e, st, y) = (emb.as_slice()?, state.as_slice()?, y.as_slice()?);
-    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth };
+    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth, kernel_block };
     let flat = py.detach(|| analog::forecast(e, m, st, y, p, &prm));
     to2d(py, flat, 2 * p + 2)
 }
@@ -78,9 +79,25 @@ fn neighbours<'py>(
 ) -> PyResult<(Bound<'py, PyArray2<i64>>, Bound<'py, PyArray2<f64>>)> {
     let (m, p) = (emb.as_array().ncols(), y.as_array().ncols());
     let (e, st, y) = (emb.as_slice()?, state.as_slice()?, y.as_slice()?);
-    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth: 0.0 };
+    let prm = analog::Params { w, delay, h, lookback, k, k_min, excl, regime, warmup, bandwidth: 0.0, kernel_block: 0 };
     let (idx, wt) = py.detach(|| analog::neighbours(e, m, st, y, p, &prm));
     Ok((idx.into_pyarray(py).reshape([st.len(), 2 * k])?, to2d(py, wt, 2 * k)?))
+}
+
+/// Expanding alpha-quantile and expected shortfall over finite z[start..=t], for every t.
+#[pyfunction]
+fn expanding_tail<'py>(py: Python<'py>, z: PyReadonlyArray1<f64>, start: usize, alpha: f64) -> PyResult<(A1<'py>, A1<'py>)> {
+    let z = z.as_slice()?;
+    let (q, es) = py.detach(|| tails::expanding_tail(z, start, alpha));
+    Ok((q.into_pyarray(py), es.into_pyarray(py)))
+}
+
+/// Rolling alpha-quantile and expected shortfall over the last `window` values, for every t.
+#[pyfunction]
+fn rolling_tail<'py>(py: Python<'py>, r: PyReadonlyArray1<f64>, window: usize, alpha: f64) -> PyResult<(A1<'py>, A1<'py>)> {
+    let r = r.as_slice()?;
+    let (q, es) = py.detach(|| tails::rolling_tail(r, window, alpha));
+    Ok((q.into_pyarray(py), es.into_pyarray(py)))
 }
 
 /// Zero-mean GARCH(1,1): (one-step variance forecasts, log-likelihood from `start`).
@@ -151,6 +168,8 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(forecast, m)?)?;
     m.add_function(wrap_pyfunction!(neighbours, m)?)?;
     m.add_function(wrap_pyfunction!(garch_filter, m)?)?;
+    m.add_function(wrap_pyfunction!(expanding_tail, m)?)?;
+    m.add_function(wrap_pyfunction!(rolling_tail, m)?)?;
     m.add_function(wrap_pyfunction!(hawkes_loglik, m)?)?;
     m.add_function(wrap_pyfunction!(hawkes_prob, m)?)?;
     m.add_function(wrap_pyfunction!(py_backtest, m)?)?;
