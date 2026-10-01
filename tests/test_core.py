@@ -179,3 +179,27 @@ def test_pinned_snapshot_truncates_and_detects_changes(tmp_path, monkeypatch):
     changed.to_csv(tmp_path / "x.csv.gz")
     with pytest.warns(UserWarning, match="differs from the pinned snapshot"):
         D._cached("x", None)
+
+
+def test_klines_timestamps_ms_and_us():
+    from sq import data as D
+    rows = [[1551398400000, "1", "2", "0.5", "1.5", "10"],          # 2019, milliseconds
+            [1740787200000000, "1", "2", "0.5", "1.5", "10"]]       # 2025, microseconds (archive)
+    df = D._klines_frame(rows)
+    assert list(df.index) == [pd.Timestamp("2019-03-01"), pd.Timestamp("2025-03-01")]
+
+
+def test_binance_falls_back_to_archive_when_geo_blocked(tmp_path, monkeypatch):
+    import urllib.error
+    from sq import data as D
+    monkeypatch.setattr(D, "DATA", tmp_path)
+
+    def blocked(*a):
+        raise urllib.error.HTTPError("u", 451, "restricted location", None, None)
+
+    archive = D._klines_frame([[1551398400000 + 3600000 * i, "1", "2", "0.5", "1.5", "10"] for i in range(5)])
+    monkeypatch.setattr(D, "_binance_api", blocked)
+    monkeypatch.setattr(D, "_binance_archive", lambda *a: archive)
+    with pytest.warns(UserWarning, match="HTTP 451"):
+        out = D.binance("TESTUSDT", "1h")
+    assert len(out) == 4  # unpinned series drop the still-forming final bar

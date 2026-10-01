@@ -77,6 +77,13 @@ original). **Overlay**: long-only, no leverage, 5 bp per unit turnover, 0.1 reba
 
 ## Data
 
+**Binance access.** Binance's REST API refuses some regions (e.g. HTTP 451 in the US). The loader
+then falls back to the public bulk archive at `data.binance.vision` (or set
+`SQ_BINANCE_SOURCE=archive`). The two official sources agree on 99.94% of bars but not all (the
+archive contains a misaligned window during a February 2018 outage and a few bars differing around
+exchange maintenance), so an archive-built series fails the snapshot check below and results can
+differ marginally from the paper; the loader warns when this happens.
+
 **Pinned snapshot.** `python/sq/data_manifest.json` records, for every series in the paper, the
 last bar used, the row count and a SHA-256 of the cleaned data. Loaders truncate to that bar and
 verify the hash, so re-running the experiments later reproduces the published numbers; if a
