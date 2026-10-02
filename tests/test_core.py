@@ -347,3 +347,18 @@ def test_public_api_matches_core_and_validates():
         model.forecast(d.emb[:-1], y)
     vf = volatility_forecast(synthetic(12000), horizon=24, min_hist=4000, regime_len=300)
     assert {"variance", "realised", "n_analogues"} <= set(vf.columns) and vf.variance.notna().sum() > 1000
+
+
+def test_rolling_har_equals_direct_ols():
+    d = V.VolData(M.Market(synthetic(8000)), SMALL_VOL)
+    w = 1500
+    f = V.har_rolling(d, w)
+    fl = V.FLOOR * d.long
+    X = np.column_stack(
+        [np.ones(len(d.r))] + [np.log(np.maximum(V._roll_mean(d.r2, L), fl)) for L in d.vc.har]
+    )
+    for t in (3000, 5000, 7900):
+        rows = np.arange(t - d.vc.h - w, t - d.vc.h)  # the w most recent rows with observed targets
+        rows = rows[np.isfinite(X[rows]).all(1) & np.isfinite(d.target[rows])]
+        b = np.linalg.lstsq(X[rows], d.target[rows], rcond=None)[0]
+        assert f[t] == pytest.approx(X[t] @ b, abs=1e-8)

@@ -442,6 +442,79 @@ def e8_var(sets, B):
     )
 
 
+# ---------------------------------------------------------------- E9: rolling-window HAR
+
+ROLL_WINDOWS = {24: (2190, 8760), 5: (250, 1000), 22: (250, 1000)}  # by horizon: hourly 3m/1y; daily 1y/4y
+
+
+def _bias_correct(d, f, bounds):
+    """Per-fold correction to the variance scale, exactly as in vol.walk_forward."""
+    out = np.full(len(f), np.nan)
+    ok_r = d.realised > 0
+    for a, b in bounds:
+        v = np.zeros(len(f), bool)
+        v[d.fit_rows(a)] = True
+        v &= ok_r & np.isfinite(d.target) & np.isfinite(f)
+        out[a:b] = f[a:b] + np.log(np.mean(np.exp(d.target[v] - f[v])))
+    return out
+
+
+def e9_rolling_har(series, B):
+    """Robustness to the HAR fitting scheme (Chassot & Audrino 2026): HAR re-estimated every bar
+    on a rolling window, alone and combined with the analogue forecast."""
+    rows, tests = [], []
+    for label, d, cal, bounds in series:
+        F, _ = V.walk_forward(d, bounds)
+        ana, _, _ = V.analogue(d)
+        models = {"HAR (expanding)": F["HAR"], "Analogue+HAR (expanding)": F["Analogue+HAR"]}
+        for w in ROLL_WINDOWS[d.vc.h]:
+            hr = V.har_rolling(d, w)
+            models[f"HAR (rolling {w})"] = _bias_correct(d, hr, bounds)
+            models[f"Analogue+HAR (rolling {w})"] = _bias_correct(d, (ana + hr) / 2, bounds)
+        ok = valid_rows(d, cal)
+        for f in models.values():
+            ok &= np.isfinite(f)
+        q = {k: V.qlike(d.realised[ok], f[ok]) for k, f in models.items()}
+        avg = np.mean(list(q.values()), axis=0)
+        mcs = S.model_confidence_set(q, B=B, block=block_len(2 * d.vc.h, *[v - avg for v in q.values()]))
+        base = q["HAR (expanding)"].mean()
+        for k in models:
+            rows.append(
+                {
+                    "series": label,
+                    "model": k,
+                    "QLIKE": q[k].mean(),
+                    "QLIKE / HAR (expanding)": q[k].mean() / base,
+                    "MCS p (QLIKE)": mcs[k],
+                }
+            )
+        for w in ROLL_WINDOWS[d.vc.h]:
+            stat, pv = S.diebold_mariano(q[f"HAR (rolling {w})"], q[f"Analogue+HAR (rolling {w})"], d.vc.h)
+            tests.append(
+                {
+                    "series": label,
+                    "window": w,
+                    "QLIKE ratio (A+H / HAR), rolling": q[f"Analogue+HAR (rolling {w})"].mean()
+                    / q[f"HAR (rolling {w})"].mean(),
+                    "DM stat": stat,
+                    "p": pv,
+                }
+            )
+        print(f"  E9 {label} done", flush=True)
+    md(
+        pd.DataFrame(rows).set_index(["series", "model"]),
+        RES / "e9_rolling_har",
+        note="Robustness to the HAR fitting scheme: HAR re-estimated every bar on a rolling window "
+        "(Chassot & Audrino 2026) vs the expanding per-fold fit, alone and combined with the analogue.",
+    )
+    md(
+        pd.DataFrame(tests).set_index(["series", "window"]),
+        RES / "e9_rolling_har_dm",
+        note="Analogue+HAR vs HAR when both use the rolling-window HAR. Positive DM stat: the combination "
+        "has lower QLIKE.",
+    )
+
+
 # ---------------------------------------------------------------- robustness: adjusted prices
 
 
@@ -660,7 +733,7 @@ def main():
     )
     if want("e1"):
         e1_direction(sets)
-    if any(want(e) for e in ("e2", "e3", "e4", "e5")):
+    if any(want(e) for e in ("e2", "e3", "e4", "e5", "e9")):
         series = vol_series(sets)
         forecasts = e2_volatility(series, B) if (want("e2") or want("e5")) else None
         if want("e3"):
@@ -669,6 +742,8 @@ def main():
             e4_tail(series)
         if want("e5"):
             e5_overlay(series, forecasts, B)
+        if want("e9"):
+            e9_rolling_har(series, B)
     if want("e8"):
         e8_var(sets, B)
     if a.universe == "adjusted_etfs" and want("e5"):
