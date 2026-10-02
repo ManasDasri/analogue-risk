@@ -8,6 +8,7 @@ targets are fully observed before a (t + h < a).
 from dataclasses import dataclass, replace
 
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
 
 from . import _core as core
@@ -65,6 +66,18 @@ RECOMMENDED = {
 }
 
 
+def intraday_rv(bars, fine):
+    """Realised variance of each bar of `bars` from the finer bars `fine` (e.g. hourly from
+    5-minute): the sum of squared log returns of the fine closes falling inside the bar, the
+    first return taken from the previous bar's last fine close. Bars without fine data fall back
+    to their squared bar return."""
+    lr = np.log(fine.close).diff()
+    rv = (lr**2).groupby(fine.index.floor(pd.infer_freq(bars.index[:50]) or "h")).sum(min_count=1)
+    rv = rv.reindex(bars.index)
+    sq = np.log(bars.close).diff() ** 2
+    return rv.fillna(sq).fillna(0.0).to_numpy()
+
+
 def _roll_mean(x, n):
     """Mean of x over (t-n, t], NaN before n values."""
     cs = np.r_[0.0, np.cumsum(x)]
@@ -83,12 +96,15 @@ def _fwd_mean(x, n):
 class VolData:
     """Causal inputs and realised targets for one series."""
 
-    def __init__(self, mkt, vc):
+    def __init__(self, mkt, vc, r2=None):
+        """r2: optional per-bar variance measure replacing squared bar returns, e.g. realised
+        variance from intraday data (then the target, the realised series, the analogue embedding
+        and HAR all use it; GARCH and EWMA remain return-based)."""
         self.mkt, self.vc = mkt, vc
         r, _, _, state = core.features(mkt.h, mkt.l, mkt.c, 50.0, 14, vc.regime_len)
         _, sig_long, _, _ = core.features(mkt.h, mkt.l, mkt.c, vc.long_halflife, 14, vc.regime_len)
         self.r, self.state = r, state
-        self.r2 = r * r
+        self.r2 = r * r if r2 is None else np.asarray(r2, float)
         self.long = sig_long**2
         fl = FLOOR * self.long
         self.target = np.log(np.maximum(_fwd_mean(self.r2, vc.h), fl))  # log future variance

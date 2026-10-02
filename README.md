@@ -134,6 +134,18 @@ the Analogue+HAR tie survives: against long-window rolling HAR the combination i
 indistinguishable (Wilcoxon p = 0.45 development, 0.47 confirmatory); against short-window rolling
 HAR it is significantly better (confirmatory p < 1e-4), because averaging steadies a noisy fit.
 
+## Robustness: intraday realised variance (crypto)
+
+The main study measures volatility with squared bar returns. For the eight crypto series,
+`--only e10` replaces them with realised variance from Binance 5-minute returns, as target and
+as HAR/analogue input ([`results/confirmatory/e10_intraday_rv.md`](results/confirmatory/e10_intraday_rv.md)).
+The tie holds: Analogue+HAR stays in the 90% MCS for 8 of 8 series and is never significantly
+worse than HAR at 5% (BTC and ETH p = 0.08), though it no longer beats HAR anywhere. The analogue
+alone is significantly worse than HAR in 6 of 8. With this cleaner target, rolling-window HAR
+roughly matches the expanding fit, in line with Chassot & Audrino (2026). Caveat: 5-minute
+realised variance exceeds squared hourly returns by 7-17% for liquid coins and 56% for the thinly
+traded PAXG (microstructure noise).
+
 ## Recommended settings for new work
 
 The paper's results use the pre-registered kNN analogue (`vol.HOURLY`, `vol.DAILY_W`,

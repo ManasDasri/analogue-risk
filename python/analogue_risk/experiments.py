@@ -515,6 +515,63 @@ def e9_rolling_har(series, B):
     )
 
 
+# ---------------------------------------------------------------- E10: intraday realised variance
+
+
+def e10_intraday_rv(sets, universe, B):
+    """Hourly crypto series with realised variance from 5-minute data as the target and as the
+    HAR and analogue inputs (GARCH and EWMA stay return-based); rolling-window HAR included."""
+    rows, tests = [], []
+    for name, (df, hourly) in sets.items():
+        if not hourly:
+            continue
+        fine = data.binance(UNIVERSES[universe]["hourly"][name], "5m")
+        fine = fine[fine.index < df.index[-1] + pd.Timedelta(hours=1)]
+        rv = V.intraday_rv(df, fine)
+        d = V.VolData(M.Market(df), V.HOURLY, r2=rv)
+        cal, bounds = split(len(df), V.HOURLY.warmup)
+        F, _ = V.walk_forward(d, bounds)
+        ana, _, _ = V.analogue(d)
+        for w in ROLL_WINDOWS[24]:
+            hr = V.har_rolling(d, w)
+            F[f"HAR (rolling {w})"] = _bias_correct(d, hr, bounds)
+            F[f"Analogue+HAR (rolling {w})"] = _bias_correct(d, (ana + hr) / 2, bounds)
+        ok = valid_rows(d, cal)
+        for f in F.values():
+            ok &= np.isfinite(f)
+        q = {k: V.qlike(d.realised[ok], f[ok]) for k, f in F.items()}
+        avg = np.mean(list(q.values()), axis=0)
+        mcs = S.model_confidence_set(q, B=B, block=block_len(2 * d.vc.h, *[v - avg for v in q.values()]))
+        for k in F:
+            rows.append(
+                {
+                    "series": f"{name} (h=24)",
+                    "model": k,
+                    "QLIKE": q[k].mean(),
+                    "QLIKE / HAR": q[k].mean() / q["HAR"].mean(),
+                    "MCS p (QLIKE)": mcs[k],
+                }
+            )
+        for a_, b_ in (
+            ("HAR", "Analogue+HAR"),
+            ("HAR", "Analogue"),
+            ("HAR (rolling 8760)", "Analogue+HAR (rolling 8760)"),
+        ):
+            stat, pv = S.diebold_mariano(q[a_], q[b_], d.vc.h)
+            tests.append({"series": f"{name} (h=24)", "model": b_, "vs": a_, "DM stat": stat, "p": pv})
+        print(f"  E10 {name} done ({int(ok.sum())} OOS hours)", flush=True)
+    md(
+        pd.DataFrame(rows).set_index(["series", "model"]),
+        RES / "e10_intraday_rv",
+        note="Hourly crypto with realised variance from 5-minute returns as target and HAR/analogue input.",
+    )
+    md(
+        pd.DataFrame(tests).set_index(["series", "model", "vs"]),
+        RES / "e10_intraday_rv_dm",
+        note="Diebold-Mariano tests on QLIKE (lag 24). Positive stat: the second model has lower loss.",
+    )
+
+
 # ---------------------------------------------------------------- robustness: adjusted prices
 
 
@@ -705,7 +762,7 @@ def e7_speed():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="two series, fewer bootstrap draws")
-    ap.add_argument("--only", nargs="*", default=None, help="subset of e1..e8")
+    ap.add_argument("--only", nargs="*", default=None, help="subset of e1..e10")
     ap.add_argument("--universe", default="development", choices=list(UNIVERSES))
     ap.add_argument("--auto-block", action="store_true", help="Politis-White bootstrap block lengths")
     a = ap.parse_args()
@@ -744,6 +801,8 @@ def main():
             e5_overlay(series, forecasts, B)
         if want("e9"):
             e9_rolling_har(series, B)
+    if want("e10"):
+        e10_intraday_rv(sets, a.universe, B)
     if want("e8"):
         e8_var(sets, B)
     if a.universe == "adjusted_etfs" and want("e5"):
