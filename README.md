@@ -140,7 +140,8 @@ The main study measures volatility with squared bar returns. For the eight crypt
 `--only e10` replaces them with realised variance from Binance 5-minute returns, as target and
 as HAR/analogue input ([`results/confirmatory/e10_intraday_rv.md`](results/confirmatory/e10_intraday_rv.md)).
 The tie holds: Analogue+HAR stays in the 90% MCS for 8 of 8 series and is never significantly
-worse than HAR at 5% (BTC and ETH p = 0.08), though it no longer beats HAR anywhere. The analogue
+worse than HAR at 5% (BTC and ETH p = 0.08), and never significantly better (its loss is
+slightly lower for three series and slightly higher for five). The analogue
 alone is significantly worse than HAR in 6 of 8. With this cleaner target, rolling-window HAR
 roughly matches the expanding fit, in line with Chassot & Audrino (2026). Caveat: 5-minute
 realised variance exceeds squared hourly returns by 7-17% for liquid coins and 56% for the thinly
@@ -222,7 +223,7 @@ the chart timezone to UTC, open *Strategy Tester -> List of Trades*, export the 
 
 ```
 src/            Rust core: analog.rs (engine), backtest.rs (simulator), hawkes.rs, garch.rs,
-                features.rs, legacy.rs (bar-for-bar port of the Pine v1 strategy), lib.rs (PyO3)
+                features.rs, legacy.rs (line-by-line port of the Pine v1 strategy), lib.rs (PyO3)
 python/analogue_risk/      data.py, model.py (direction + v1 + gates), vol.py (risk models, overlay),
                 var.py (VaR/ES), stats.py, experiments.py, hypotheses.py, figures.py
 paper/          research/ (journal manuscript), softwarex/ (software paper), refs.bib,

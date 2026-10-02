@@ -1,4 +1,4 @@
-//! Bar-for-bar port of the original TradingView strategy (`codes/script.pine`, defaults),
+//! Line-by-line port of the original TradingView strategy (`codes/script.pine`, defaults),
 //! used as the prior-work baseline. Execution semantics are reproduced in backtest::run with
 //! max_hold = 21 (close when bars-in-trade >= 20, filled next open), protect_entry = false
 //! (exit orders are placed at the entry bar's close), close_on_opposite = true and notional sizing.
