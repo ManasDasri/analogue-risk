@@ -77,10 +77,17 @@ standard benchmarks under a walk-forward protocol: HAR \citep{corsi2009} and GAR
 historical simulation \citep{baroneadesi1999} and GARCH-$t$ for tail risk, and gradient-boosted
 trees \citep{friedman2001} as a flexible machine-learning comparator.
 
+The closest antecedent is \citet{andrada2016}, who showed in this journal that nearest-neighbour
+forecasts of S\&P 100 realised variance, alone and combined with long-memory models, add value
+mainly in economic rather than statistical terms. We extend that question from one index to 24
+assets in five asset classes, from volatility to direction, jumps and Value-at-Risk, and from a
+retrospective study to a pre-registered, prospective test.
+
 Our contributions are threefold. First, we provide a pre-registered, multi-asset evaluation of
 analogue forecasting across direction and risk, with the model confidence set
 \citep{hansen2011}, Diebold--Mariano tests \citep{diebold1995}, the Fissler--Ziegel loss for
-VaR/ES \citep{fissler2016,patton2019} and deflated Sharpe ratios \citep{bailey2014}. Second, we
+VaR/ES \citep{fissler2016,patton2019} and deflated Sharpe ratios \citep{bailey2014}; to our
+knowledge it is the first pre-registered study of analogue forecasting in finance. Second, we
 introduce design elements that make analogue forecasts statistically meaningful: an exclusion
 zone that keeps analogue outcome windows independent, a mixture over volatility regimes weighted
 by the Markov forecast of the regime over the horizon, and labels produced by the same trade
@@ -89,7 +96,7 @@ open-source software, so that each table in this paper is reproduced by one comm
 
 The results are summarised in Section~\ref{sec:results}. In brief, analogue methods carry no
 information about direction, but they produce risk forecasts that are competitive with the best
-standard models and, for the tails, unusually well calibrated.
+standard models, with tail forecasts as well calibrated as filtered historical simulation.
 
 %% ==================================================================
 \section{Related literature}
@@ -100,13 +107,21 @@ hypothesis that nonlinear deterministic structure could be exploited where linea
 \citet{fernandez1999} found that simultaneous nearest-neighbour predictors improved on random-walk
 forecasts of European exchange rates. The weak-form efficient-markets hypothesis \citep{fama1970}
 predicts that such directional structure should be absent or small relative to trading costs.
+For risk, \citet{andrada2016} forecast S\&P 100 realised variance with nearest neighbours and
+combined them with long-memory models; the combinations were not uniformly more accurate, but
+nearest-neighbour forecasts earned higher risk-adjusted returns in an options-trading exercise
+during turbulent periods. Similarity-based forecasting has also been formalised for macroeconomic
+series \citep{dendramis2020}, and similarity between past shock episodes has been used to correct
+GARCH forecasts after news shocks \citep{lundquist2024}.
 Kernel regression \citep{nadaraya1964,watson1964} is the smooth counterpart of $k$NN averaging and
 appears here as a variant of the engine.
 
 \paragraph{Volatility forecasting} Volatility clustering makes risk far more predictable than
 returns. GARCH(1,1) \citep{bollerslev1986} is hard to beat in large comparisons
 \citep{hansen2005}; the heterogeneous autoregressive (HAR) model \citep{corsi2009} captures long
-memory with three averages of past variance. Comparing volatility forecasts requires loss
+memory with three averages of past variance, and in a recent comparison across 1,445 stocks no
+machine-learning model beat it once its estimation window and re-estimation frequency were chosen
+carefully \citep{chassot2026}. Comparing volatility forecasts requires loss
 functions that are robust to noise in the realised proxy; QLIKE and MSE on the variance scale
 are robust in this sense \citep{patton2011}. The model confidence set \citep{hansen2011}
 identifies the set of models that cannot be distinguished from the best.

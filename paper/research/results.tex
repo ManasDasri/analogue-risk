@@ -66,7 +66,10 @@ Appendix~\ref{app:vol}). The analogue forecaster alone is 11\% worse than HAR on
 significantly worse (H3). Combined with HAR it is statistically indistinguishable from HAR (H2;
 median ratio 1.001 in the confirmatory set) and remains in the 90\% model confidence set in 23 of
 25 confirmatory series, compared with 24 for HAR and 20 for GARCH(1,1); these two counts are
-unchanged when bootstrap block lengths are chosen automatically (Appendix~\ref{app:rob}). Gradient-boosted trees
+unchanged when bootstrap block lengths are chosen automatically (Appendix~\ref{app:rob}). This
+replicates, prospectively and across asset classes, the finding of \citet{andrada2016} for the
+S\&P 100: combining nearest-neighbour and model-based forecasts does not reliably improve
+statistical accuracy. Gradient-boosted trees
 given a superset of the same information are the worst model, with median QLIKE 42--52\% above
 HAR, and are in the confidence set for 2 of 40 series (H5): with a few thousand effectively independent observations
 the flexible model overfits the noisy volatility proxy, while the analogue estimator's
