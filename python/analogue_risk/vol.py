@@ -187,6 +187,36 @@ def har(d, fit):
     return X @ beta
 
 
+def har_rolling(d, window):
+    """Log-HAR re-estimated at every bar by OLS on the most recent `window` rows whose targets are
+    observed (rows j <= t - h - 1), following the fitting scheme of Chassot & Audrino (2026).
+    Uses running sums of x x' and x y, so the cost is O(n) regardless of the window."""
+    fl = FLOOR * d.long
+    X = np.column_stack([np.ones(len(d.r))] + [np.log(np.maximum(_roll_mean(d.r2, L), fl)) for L in d.vc.har])
+    y = d.target
+    ok = np.isfinite(X).all(1) & np.isfinite(y)
+    Xo = np.where(ok[:, None], X, 0.0)
+    yo = np.where(ok, y, 0.0)
+    cxx = np.cumsum(Xo[:, :, None] * Xo[:, None, :], axis=0)
+    cxy = np.cumsum(Xo * yo[:, None], axis=0)
+    cnt = np.cumsum(ok)
+    n, h = len(y), d.vc.h
+    out = np.full(n, np.nan)
+    t = np.arange(n)
+    hi = t - h - 1  # newest usable row
+    lo = hi - window  # exclusive lower bound
+    use = (hi >= 0) & np.isfinite(X).all(1)
+    hi_, lo_ = hi[use], lo[use]
+    sxx = cxx[hi_] - np.where(lo_[:, None, None] >= 0, cxx[np.maximum(lo_, 0)], 0.0)
+    sxy = cxy[hi_] - np.where(lo_[:, None] >= 0, cxy[np.maximum(lo_, 0)], 0.0)
+    m = cnt[hi_] - np.where(lo_ >= 0, cnt[np.maximum(lo_, 0)], 0)
+    good = m >= max(50, X.shape[1] * 10)
+    beta = np.full((len(hi_), X.shape[1]), np.nan)
+    beta[good] = np.linalg.solve(sxx[good] + 1e-10 * np.eye(X.shape[1]), sxy[good][:, :, None])[:, :, 0]
+    out[use] = np.einsum("ij,ij->i", X[use], beta)
+    return out
+
+
 def gbm(d, fit, seed=0):
     """Gradient-boosted trees on the union of HAR inputs, the volatility-shape embedding, the regime
     state and the long-run level (fixed, untuned hyperparameters)."""

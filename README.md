@@ -124,6 +124,16 @@ for 14/15 and 24/25. The automatic lengths are slightly more conservative, admit
 models to some confidence sets (confirmatory: analogue alone 12 -> 14, GARCH 20 -> 22); 13 of 432
 VaR/ES MCS verdicts and 3 of 168 overlay Sharpe-test verdicts change.
 
+## Robustness: HAR fitting scheme
+
+Following Chassot & Audrino (2026, IJF), `--only e9` re-estimates HAR at every bar on rolling
+windows fixed in advance (hourly 2190/8760 bars, daily 250/1000), alone and averaged with the
+analogue ([`results/confirmatory/e9_rolling_har.md`](results/confirmatory/e9_rolling_har.md)). On
+this study's squared-return target, rolling HAR does not beat the expanding per-fold fit, and
+the Analogue+HAR tie survives: against long-window rolling HAR the combination is statistically
+indistinguishable (Wilcoxon p = 0.45 development, 0.47 confirmatory); against short-window rolling
+HAR it is significantly better (confirmatory p < 1e-4), because averaging steadies a noisy fit.
+
 ## Recommended settings for new work
 
 The paper's results use the pre-registered kNN analogue (`vol.HOURLY`, `vol.DAILY_W`,
