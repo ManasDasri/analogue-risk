@@ -65,7 +65,8 @@ Table~\ref{tab:volsum} summarises 40 series--horizon pairs (full results in
 Appendix~\ref{app:vol}). The analogue forecaster alone is 11\% worse than HAR on average and
 significantly worse (H3). Combined with HAR it is statistically indistinguishable from HAR (H2;
 median ratio 1.001 in the confirmatory set) and remains in the 90\% model confidence set in 23 of
-25 confirmatory series, compared with 24 for HAR and 20 for GARCH(1,1). Gradient-boosted trees
+25 confirmatory series, compared with 24 for HAR and 20 for GARCH(1,1); these two counts are
+unchanged when bootstrap block lengths are chosen automatically (Appendix~\ref{app:rob}). Gradient-boosted trees
 given a superset of the same information are the worst model, with median QLIKE 42--52\% above
 HAR, and are in the confidence set for 2 of 40 series (H5): with a few thousand effectively independent observations
 the flexible model overfits the noisy volatility proxy, while the analogue estimator's
@@ -149,7 +150,9 @@ Scaling a long position by the Analogue+HAR volatility forecast reduced the maxi
 all 9 development and all 15 confirmatory assets (H8; median reduction 5.6 percentage points in the
 confirmatory set) at the cost of slightly lower Sharpe ratios (median change $-0.015$; positive for
 5 of 15 assets). This is the pattern documented by \citet{cederburg2020}: volatility management
-reliably reduces risk but does not reliably improve risk-adjusted returns out of sample. The
+reliably reduces risk but does not reliably improve risk-adjusted returns out of sample. With
+dividend-adjusted prices for the four distribution-paying funds, Sharpe ratio levels rise but every
+comparison keeps its sign (Appendix~\ref{app:rob}). The
 Hawkes ``lock-out'' of the original system lowered the Sharpe ratio further for 9 of 15
 confirmatory assets, and significantly so for Bitcoin and Ethereum in the development set, because the periods after
 jumps include sharp rebounds (Table~\ref{tab:overlay}, Figure~\ref{fig:eq}).
@@ -211,7 +214,8 @@ Pre-registration separated these cases at negligible cost.
 data, which adds noise to the target for daily series. The Analogue+HAR combination uses fixed
 equal weights. The embedding uses only a single series; cross-asset analogues are a natural
 extension. Transaction-cost assumptions are stylised, and the overlay ignores financing and cash
-returns.
+returns. The main tables use unadjusted closing prices, as registered; Appendix~\ref{app:rob} shows
+that dividend adjustment does not change the conclusions.
 
 %% ==================================================================
 \section{Conclusion}
@@ -227,3 +231,46 @@ pre-registration so that other analogue methods can be tested the same way.
 \label{app:vol}
 Bold entries are in the 90\% model confidence set.
 \begin{center}\resizebox{0.9\linewidth}{!}{\input{tables/tab_vol}}\end{center}
+
+\section{Robustness}
+\label{app:rob}
+
+\paragraph{Dividend-adjusted prices} The study uses Yahoo's unadjusted closing prices, as
+registered. Price indices (S\&P 500, DAX and the like) have no adjusted series, and the gold,
+silver and oil funds pay no distributions, so adjustment matters only for the Nasdaq-100,
+long-Treasury, Russell 2000 and emerging-markets funds. Re-running the volatility and overlay
+experiments on their dividend-adjusted prices (Table~\ref{tab:robadj}) moves QLIKE ratios by at
+most 0.026. Sharpe ratio levels rise for both buy-and-hold and volatility targeting---most for
+Treasuries, where coupons are the bulk of the return---but every comparison keeps its sign:
+volatility targeting still lowers the maximum drawdown and still slightly lowers the Sharpe ratio
+for three of the four funds.
+
+\begin{table}[h]
+\centering\scriptsize
+\caption{Unadjusted versus dividend-adjusted prices (volatility: $h=5$ and $h=22$; overlay: $h=5$).}
+\label{tab:robadj}
+\resizebox{\linewidth}{!}{\input{tables/tab_rob_adjusted}}
+\end{table}
+
+\paragraph{Bootstrap block lengths} Model confidence sets and Sharpe-difference tests use the
+stationary bootstrap with fixed mean block lengths ($2h$; ten days for VaR/ES). Replacing them by
+the automatic choice of \citet{politis2004}, with the correction of \citet{patton2009}, leaves the
+headline counts unchanged---Analogue+HAR remains in the 90\% confidence set for 14 of 15
+development and 23 of 25 confirmatory series, HAR for 14 and 24---and changes 19 of 672
+confidence-set verdicts and 3 of 168 test verdicts (Table~\ref{tab:robblk}). The automatic lengths
+are slightly more conservative, so the changes mostly admit additional models to a confidence set.
+
+\begin{table}[h]
+\centering\scriptsize
+\caption{Fixed versus Politis--White bootstrap block lengths.}
+\label{tab:robblk}
+\resizebox{\linewidth}{!}{\input{tables/tab_rob_blocks}}
+\end{table}
+
+\paragraph{Kernel effective sample size} In kernel mode all anchors receive weight, and anchors
+whose outcome windows overlap are not independent, so the \citet{kish1965} effective sample size
+counted per anchor overstates the information in the analogue set. This affects the standard
+error of the kernel forecast and its minimum-sample rule, not its mean, so H4, which compares
+forecast accuracy, is unaffected. The released code offers an overlap-aware effective sample size
+that counts each block of $h$ anchors as one observation; it is recommended for new work.
+
