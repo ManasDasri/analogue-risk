@@ -143,5 +143,45 @@
   "end": "2026-09-29T13:30:00",
   "rows": 5903,
   "sha256": "82ad9adf852bcfc6d6679a89e92bb922d3687959b9118a6d1afbde30e61d7733"
+ },
+ "binance_BTCUSDT_5m": {
+  "end": "2026-09-30T09:55:00",
+  "rows": 918386,
+  "sha256": "98c56c79ee42d6466818328dab91cf50a1f8e90c406d8847548de7b47ea79758"
+ },
+ "binance_ETHUSDT_5m": {
+  "end": "2026-09-30T09:55:00",
+  "rows": 918386,
+  "sha256": "aa28f7a46a1b56ed40fc06460cabf4f62b4a1c936acc5251a8d89b5bb478f6b5"
+ },
+ "binance_PAXGUSDT_5m": {
+  "end": "2026-09-30T09:55:00",
+  "rows": 640205,
+  "sha256": "2782dfdcdf69d605314d79026b7a64283ed904cfbd5aad6c424b1c682b72a5f1"
+ },
+ "binance_SOLUSDT_5m": {
+  "end": "2026-09-30T16:55:00",
+  "rows": 645257,
+  "sha256": "e397b57acddb2830f18e7c198d1fba3bafead341d148007d704a2da0423c3acb"
+ },
+ "binance_BNBUSDT_5m": {
+  "end": "2026-09-30T16:55:00",
+  "rows": 918470,
+  "sha256": "761cfef0c1a7fe53d4aca7b1b9c8634a9d14fd9f351ddded2418886d3f9f3a5f"
+ },
+ "binance_XRPUSDT_5m": {
+  "end": "2026-09-30T16:55:00",
+  "rows": 883382,
+  "sha256": "3713e33e08ac63dca095f8d02dd80b97eec9bbd068d4b6848ad3fa3c48809d84"
+ },
+ "binance_ADAUSDT_5m": {
+  "end": "2026-09-30T16:55:00",
+  "rows": 888328,
+  "sha256": "b27e44530e347d5a8dd58c33b0a990452c3df8216bccf1212fe517382e408d4b"
+ },
+ "binance_LTCUSDT_5m": {
+  "end": "2026-09-30T16:55:00",
+  "rows": 918469,
+  "sha256": "fd730c4603d10a39e9c4d9e4fb9c258bb8da157dfe53aa05658744f1487daa17"
  }
 }

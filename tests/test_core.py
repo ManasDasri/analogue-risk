@@ -362,3 +362,24 @@ def test_rolling_har_equals_direct_ols():
         rows = rows[np.isfinite(X[rows]).all(1) & np.isfinite(d.target[rows])]
         b = np.linalg.lstsq(X[rows], d.target[rows], rcond=None)[0]
         assert f[t] == pytest.approx(X[t] @ b, abs=1e-8)
+
+
+def test_intraday_rv_sums_fine_returns_and_falls_back():
+    from analogue_risk import data as D
+
+    rng = np.random.default_rng(7)
+    n = 12 * 200
+    idx = pd.date_range("2024-01-01", periods=n, freq="5min")
+    c = 100 * np.exp(np.cumsum(rng.normal(0, 0.001, n)))
+    fine = pd.DataFrame({"open": c, "high": c, "low": c, "close": c, "volume": 1.0}, index=idx)
+    hourly = D.resample(fine, "1h")
+    rv = V.intraday_rv(hourly, fine)
+    lr = np.log(fine.close).diff()
+    assert rv[5] == pytest.approx(
+        (lr.iloc[60:72] ** 2).sum()
+    )  # hour 5: its 12 returns, incl. the cross-hour one
+    gap = fine.drop(fine.index[(fine.index >= "2024-01-01 07:00") & (fine.index < "2024-01-01 08:00")])
+    rv2 = V.intraday_rv(hourly, gap)
+    assert rv2[7] == pytest.approx(
+        np.log(hourly.close).diff().iloc[7] ** 2
+    )  # no fine data: squared bar return

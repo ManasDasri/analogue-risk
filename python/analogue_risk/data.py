@@ -30,14 +30,21 @@ COLS = ["open", "high", "low", "close", "volume"]
 
 
 def _get_bytes(url):
+    """GET a file; None for 404. Retries transient failures (timeouts, 5xx) with backoff."""
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            return r.read()
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise
+    for attempt in range(5):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            if e.code < 500 or attempt == 4:
+                raise
+        except (TimeoutError, urllib.error.URLError, ConnectionError):
+            if attempt == 4:
+                raise
+        time.sleep(2**attempt)
 
 
 def _get(url):
