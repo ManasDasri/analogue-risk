@@ -399,6 +399,83 @@ Set & Test & Cases & Verdict & Fixed & Politis--White & Changed \\
         )
 
 
+def robustness_har_rv():
+    """Appendix tables: rolling-window HAR (e9) and intraday realised variance for crypto (e10)."""
+    from scipy.stats import wilcoxon
+
+    rows = []
+    for label, base in RES.items():
+        f, g = base / "e9_rolling_har.csv", base / "e9_rolling_har_dm.csv"
+        if not f.exists():
+            continue
+        t, dm = pd.read_csv(f), pd.read_csv(g)
+        for freq, wins in (("Hourly", (2190, 8760)), ("Daily", (250, 1000))):
+            ser = dm[dm.window.isin(wins)].series.unique()
+            for w in wins:
+                tt = t[t.series.isin(ser)]
+                q = tt.pivot(index="series", columns="model", values="QLIKE / HAR (expanding)")
+                m = tt.pivot(index="series", columns="model", values="MCS p (QLIKE)")
+                d = dm[dm.window == w]
+                r = np.log(d["QLIKE ratio (A+H / HAR), rolling"])
+                rows.append(
+                    " & ".join(
+                        [
+                            label,
+                            freq,
+                            str(w),
+                            str(len(ser)),
+                            fmt(q[f"HAR (rolling {w})"].median()),
+                            str(int((m[f"HAR (rolling {w})"] >= 0.1).sum())),
+                            fmt(np.exp(r.median())),
+                            f"{int(((d['DM stat'] > 0) & (d.p < 0.05)).sum())}/{int(((d['DM stat'] < 0) & (d.p < 0.05)).sum())}",
+                            fmt(wilcoxon(r).pvalue, 3) if len(r) >= 5 else "--",
+                        ]
+                    )
+                    + r"\\"
+                )
+    if rows:
+        write(
+            "tab_rob_rolling",
+            r"""\begin{tabular}{llrrrrrrr}
+\toprule
+& & & & \multicolumn{2}{c}{Rolling HAR} & \multicolumn{3}{c}{Analogue+HAR vs rolling HAR} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-9}
+Set & Freq. & Window & Series & QLIKE / HAR$_{\text{exp}}$ & In MCS & Median ratio & DM sig.\ (A+H/HAR) & Wilcoxon $p$ \\
+\midrule
+"""
+            + "\n".join(rows)
+            + "\n\\bottomrule\n\\end{tabular}\n",
+        )
+
+    cols = ["EWMA", "GARCH", "HAR", "GBM", "Analogue", "Analogue+HAR", "HAR (rolling 8760)"]
+    rows = []
+    for label, base in RES.items():
+        f = base / "e10_intraday_rv.csv"
+        if not f.exists():
+            continue
+        t = pd.read_csv(f)
+        q = t.pivot(index="series", columns="model", values="QLIKE / HAR")
+        m = t.pivot(index="series", columns="model", values="MCS p (QLIKE)")
+        rows.append(rf"\multicolumn{{8}}{{l}}{{\textit{{{label} set}}}}\\")
+        for s_ in q.index:
+            cells = [
+                (r"\textbf{" + fmt(q.loc[s_, k]) + "}") if m.loc[s_, k] >= 0.10 else fmt(q.loc[s_, k])
+                for k in cols
+            ]
+            rows.append(esc(s_) + " & " + " & ".join(cells) + r"\\")
+    if rows:
+        write(
+            "tab_rob_rv",
+            r"""\begin{tabular}{lrrrrrrr}
+\toprule
+Series & EWMA & GARCH & HAR & GBM & Analogue & Analogue+HAR & HAR (rolling 1y) \\
+\midrule
+"""
+            + "\n".join(rows)
+            + "\n\\bottomrule\n\\end{tabular}\n",
+        )
+
+
 def data_table():
     import sys
 
@@ -454,6 +531,7 @@ if __name__ == "__main__":
         overlay,
         hypotheses,
         robustness,
+        robustness_har_rv,
         data_table,
     ):
         f()

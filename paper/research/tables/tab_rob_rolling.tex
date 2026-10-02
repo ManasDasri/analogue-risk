@@ -1,0 +1,16 @@
+\begin{tabular}{llrrrrrrr}
+\toprule
+& & & & \multicolumn{2}{c}{Rolling HAR} & \multicolumn{3}{c}{Analogue+HAR vs rolling HAR} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-9}
+Set & Freq. & Window & Series & QLIKE / HAR$_{\text{exp}}$ & In MCS & Median ratio & DM sig.\ (A+H/HAR) & Wilcoxon $p$ \\
+\midrule
+Development & Hourly & 2190 & 3 & 1.065 & 1 & 0.963 & 2/0 & --\\
+Development & Hourly & 8760 & 3 & 1.028 & 2 & 0.980 & 1/0 & --\\
+Development & Daily & 250 & 12 & 1.087 & 8 & 0.955 & 5/0 & 0.016\\
+Development & Daily & 1000 & 12 & 1.054 & 12 & 0.989 & 4/0 & 0.470\\
+Confirmatory & Hourly & 2190 & 5 & 1.035 & 3 & 0.986 & 2/0 & 0.062\\
+Confirmatory & Hourly & 8760 & 5 & 0.998 & 5 & 0.999 & 1/0 & 0.625\\
+Confirmatory & Daily & 250 & 20 & 1.164 & 11 & 0.938 & 12/0 & 0.000\\
+Confirmatory & Daily & 1000 & 20 & 1.042 & 18 & 0.992 & 4/1 & 0.674\\
+\bottomrule
+\end{tabular}

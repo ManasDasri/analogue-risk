@@ -71,7 +71,7 @@ package; override with `ANALOGUE_RISK_DATA`) or `data/` (source checkout).
 | `vol.overlay(d, log_forecast, start, kind="vol" or "kelly")` | volatility-managed long exposure |
 | `var.forecasts(d, var.VarConfig(), folds)` | one-day VaR/ES: HS, GARCH-N, GARCH-t, FHS, Analogue |
 | `var.kupiec`, `var.christoffersen`, `var.tick_loss`, `var.fz0_loss` | VaR/ES backtests and scoring rules |
-| `model.run_v1(Market(prices), cost_bps)` | bar-for-bar port of the original TradingView strategy |
+| `model.run_v1(Market(prices), cost_bps)` | line-by-line port of the original TradingView strategy (check against TradingView with `pine_parity`) |
 
 ## Statistics — `ar.stats`
 

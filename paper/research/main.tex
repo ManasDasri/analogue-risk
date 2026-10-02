@@ -246,7 +246,9 @@ Hawkes and logistic parameters, bias corrections, and the direction model's conf
 chosen from an 18-point grid---uses only data observed before the fold. All results are
 out-of-sample.
 
-\paragraph{Statistics} Volatility forecasts are compared with QLIKE and log-MSE, Diebold--Mariano
+\paragraph{Statistics} Volatility forecasts are compared with QLIKE, which ranks forecasts
+consistently even when the volatility proxy is noisy \citep{patton2011}; the MSE of log variance is
+reported for interpretation only, because it lacks that robustness. We use Diebold--Mariano
 tests with Newey--West variance at lag $h$ \citep{newey1987}, and the 90\% model confidence set
 with the $T_{\max}$ statistic and 1,000 stationary-bootstrap draws \citep{politis1994}. Jump
 forecasts use log-loss, Brier score and AUC. VaR/ES forecasts use Kupiec and Christoffersen tests,

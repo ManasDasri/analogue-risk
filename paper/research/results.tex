@@ -39,7 +39,7 @@ the forecast and the realised R-multiple of the trade), the Brier skill of the d
 probability, and out-of-sample Sharpe ratios. Across 24 assets the IC never exceeds 0.06 in
 absolute value, the mean IC is \dirMeanICDev\ in the development set and \dirMeanICCon\ in the
 confirmatory set, and H1 is confirmed ($p=0.60$). Richer embeddings ($m=4$) do not help. The
-bar-for-bar replication of the original strategy (v1) and the walk-forward-selected v2 both trail
+line-by-line port of the original strategy (v1) and the walk-forward-selected v2 both trail
 buy-and-hold on almost every asset with positive drift, and the best deflated Sharpe ratio over
 the 18-configuration grid is \dirMaxDSRDev\ (development) and \dirMaxDSRCon\ (confirmatory), far below
 the 0.95 needed to claim skill. Positive Brier skill appears only for Nasdaq-100 and gold (development) and oil (confirmatory);
@@ -69,7 +69,9 @@ median ratio 1.001 in the confirmatory set) and remains in the 90\% model confid
 unchanged when bootstrap block lengths are chosen automatically (Appendix~\ref{app:rob}). This
 replicates, prospectively and across asset classes, the finding of \citet{andrada2016} for the
 S\&P 100: combining nearest-neighbour and model-based forecasts does not reliably improve
-statistical accuracy. Gradient-boosted trees
+statistical accuracy. The tie also survives re-estimating HAR at every bar on rolling windows and,
+for the crypto series, measuring volatility with 5-minute realised variance
+(Appendix~\ref{app:rob}). Gradient-boosted trees
 given a superset of the same information are the worst model, with median QLIKE 42--52\% above
 HAR, and are in the confidence set for 2 of 40 series (H5): with a few thousand effectively independent observations
 the flexible model overfits the noisy volatility proxy, while the analogue estimator's
@@ -213,8 +215,9 @@ only tied with FHS on new assets; the kernel variant, found after the developmen
 fixed, might have been dismissed as a lucky ablation but replicated with $p<10^{-6}$.
 Pre-registration separated these cases at negligible cost.
 
-\paragraph{Limitations} Realised variance is computed from bar returns rather than intraday
-data, which adds noise to the target for daily series. The Analogue+HAR combination uses fixed
+\paragraph{Limitations} For the daily series, realised variance is computed from daily returns
+rather than intraday data, which adds noise to the target; for the crypto series,
+Appendix~\ref{app:rob} repeats the volatility study with 5-minute realised variance. The Analogue+HAR combination uses fixed
 equal weights. The embedding uses only a single series; cross-asset analogues are a natural
 extension. Transaction-cost assumptions are stylised, and the overlay ignores financing and cash
 returns. The main tables use unadjusted closing prices, as registered; Appendix~\ref{app:rob} shows
@@ -276,4 +279,44 @@ counted per anchor overstates the information in the analogue set. This affects 
 error of the kernel forecast and its minimum-sample rule, not its mean, so H4, which compares
 forecast accuracy, is unaffected. The released code offers an overlap-aware effective sample size
 that counts each block of $h$ anchors as one observation; it is recommended for new work.
+
+\paragraph{HAR fitting scheme} \citet{chassot2026} show that HAR is hardest to beat when it is
+re-estimated frequently on a rolling window. We therefore re-estimated HAR at every bar on rolling
+windows fixed before the analysis (hourly: 2,190 and 8,760 bars; daily: 250 and 1,000 bars), alone
+and averaged with the analogue (Table~\ref{tab:robroll}). On this study's squared-return target the
+rolling fits do not improve on the expanding per-fold fit, short windows least of all. The
+Analogue+HAR tie is unaffected: across series the combination is statistically indistinguishable
+from long-window rolling HAR (individual series differ in both directions), and for the daily series
+it is significantly better than short-window rolling HAR, because averaging with the analogue
+steadies a noisy fit.
+
+\begin{table}[h]
+\centering\scriptsize
+\caption{Rolling-window HAR. QLIKE ratios are medians across series; ``DM sig.'' counts series with
+a significant Diebold--Mariano test in favour of Analogue+HAR / of HAR at 5\%; Wilcoxon tests the
+log QLIKE ratios across series (not computed for fewer than five series).}
+\label{tab:robroll}
+\resizebox{\linewidth}{!}{\input{tables/tab_rob_rolling}}
+\end{table}
+
+\paragraph{Intraday realised variance} Squared bar returns are a noisy volatility proxy; QLIKE ranks
+forecasts consistently despite that noise \citep{patton2011}, but realised variance from intraday
+data is the standard target. For the eight crypto series we therefore rebuilt the volatility study
+on realised variance from Binance 5-minute returns, used as the target and as the HAR and analogue
+input (GARCH and EWMA remain return-based). Table~\ref{tab:robrv} shows that the conclusions hold:
+Analogue+HAR remains in the 90\% model confidence set for all eight series and is never
+significantly different from HAR at 5\% (its loss is slightly lower for three series and slightly
+higher for five); the
+analogue alone is significantly worse than HAR for six of eight; and with this cleaner target the
+one-year rolling HAR roughly matches the expanding fit, in line with \citet{chassot2026}. Five-minute
+realised variance exceeds squared hourly returns by 7--17\% for the liquid coins and by 56\% for the
+thinly traded PAXG, reflecting microstructure noise.
+
+\begin{table}[h]
+\centering\scriptsize
+\caption{Crypto series with 5-minute realised variance: QLIKE relative to HAR; bold entries are in
+the 90\% model confidence set.}
+\label{tab:robrv}
+\resizebox{\linewidth}{!}{\input{tables/tab_rob_rv}}
+\end{table}
 
